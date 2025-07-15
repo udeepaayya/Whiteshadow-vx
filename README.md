@@ -102,22 +102,11 @@ jobs:
       - name: Start application
         run: npm start
 
-</details>
 
-ℹ️ Save the above file as `.github/workflows/nodejs.yml` to enable auto-builds on every push or PR.
 
 ---
 
-## 🌟 Core Features
-
-```bash
-✦ Antidelete / Antiviewonce / Antilink  
-✦ High-speed YT, TikTok, FB, IG downloaders  
-✦ 10+ AI models (Chat, Vision, Voice)  
-✦ Group & Admin utilities + Fun commands  
-✦ Cool cyber UI + low latency
 ```
-
 ---
 
 ## 🪀 Support Channel
