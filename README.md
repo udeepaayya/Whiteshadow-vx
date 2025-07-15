@@ -35,25 +35,24 @@
 
 ---
 
+
 ## 🛰️ Deployment Steps
 
-```bash
-> 1. ⭐ Star & 🍴 Fork the repo
-> 2. Edit `.env` → add your creds
+> 1. ⭐ Star & 🍴 Fork the repo  
+> 2. Edit `.env` → add your creds  
 > 3. Deploy with your favourite provider 👇
 
-Deploy Button
+### 🔘 Deploy Button
 
-<a href="https://dashboard.render.com/web/new?fromGitRepo=true&repo=https://github.com/cnw-os/Whiteshadow-v2" target="_blank"><img src="https://img.shields.io/badge/Render-000000?style=for-the-badge&logo=render&logoColor=white&labelColor=000000&color=00ffaa"/></a>
-
-
+[![Deploy on Render](https://img.shields.io/badge/Render-000000?style=for-the-badge&logo=render&logoColor=white&labelColor=000000&color=00ffaa)](https://dashboard.render.com/web/new?fromGitRepo=true&repo=https://github.com/cnw-os/Whiteshadow-v2)
 
 ---
 
-🔗 Pairing Link
+## 🔗 Pairing Link
 
-> <a href="https://whiteshadow-x-pair.onrender.com/pair" target="_blank"><img src="https://img.shields.io/badge/PAIR_CODE-00FFFF?style=for-the-badge&logo=matrix&logoColor=white&labelColor=000000"/></a>
+[![Pair Now](https://img.shields.io/badge/PAIR_CODE-00FFFF?style=for-the-badge&logo=matrix&logoColor=white&labelColor=000000)](https://whiteshadow-x-pair.onrender.com/pair)
 
+> 🧠 If you face connection issues, try enabling a VPN.
 
 
 > If you face connection issues, enable a VPN and retry.
