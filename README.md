@@ -62,10 +62,13 @@
 
 ---
 
-📡 Continuous Integration (GitHub Actions)
+
+## 🚀 Continuous Integration
 
 <details>
 <summary>✨ Node.js CI Workflow (click to expand)</summary>
+
+```yml
 name: Node.js CI
 
 on:
@@ -79,9 +82,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
         node-version: [20.x]
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -97,57 +102,59 @@ jobs:
       - name: Start application
         run: npm start
 
-</details>ℹ️ Save the above file as .github/workflows/nodejs.yml to enable auto-builds on every push or PR.
+</details>
 
+ℹ️ Save the above file as `.github/workflows/nodejs.yml` to enable auto-builds on every push or PR.
 
 ---
 
-🌟 Core Features
+## 🌟 Core Features
 
-✦ Antidelete / Antiviewonce / Antilink
-✦ High-speed YT, TikTok, FB, IG downloaders
-✦ 10+ AI models (Chat, Vision, Voice)
-✦ Group & Admin utilities + Fun commands
+```bash
+✦ Antidelete / Antiviewonce / Antilink  
+✦ High-speed YT, TikTok, FB, IG downloaders  
+✦ 10+ AI models (Chat, Vision, Voice)  
+✦ Group & Admin utilities + Fun commands  
 ✦ Cool cyber UI + low latency
-
+```
 
 ---
 
-🪀 Support Channel
+## 🪀 Support Channel
 
 <p align="center">
   <a href="https://whatsapp.com/channel/0029Vak4dFAHQbSBzyxlGG13" target="_blank">
     <img src="https://img.shields.io/badge/Join-WhatsApp%20Channel-25D366?style=for-the-badge&logo=whatsapp&logoColor=white&labelColor=000000"/>
   </a>
 </p>
----
-
-⚠️ Disclaimer
-
-> WHITESHADOW-MD is not affiliated with WhatsApp Inc. Use at your own risk. Misuse may result in account bans.
-
-
-
 
 ---
 
-👑 Project Architect
+## ⚠️ Disclaimer
+
+> **WHITESHADOW-MD** is not affiliated with **WhatsApp Inc.**  
+> Use at your own risk. Misuse may result in account bans.
+
+---
+
+## 👑 Project Architect
 
 <p align="center">
   <a href="https://github.com/chamod-bot-ctrl" target="_blank">
     <img src="https://github-readme-stats.vercel.app/api?username=chamod-bot-ctrl&show_icons=true&theme=dark&border_color=00ffff&title_color=00ffff&icon_color=00ffff" width="420"/>
   </a>
 </p>
+
 ---
 
-🚦 Status
+## 🚦 Status
 
+```diff
 + Project: Active
 ! Version: V1.0 – Neon Edition
 # License: MIT
+```
 
 <div align="center">
   <img src="https://i.imgur.com/OVCwYVB.gif" width="100%"/>
 </div>
-```
----
