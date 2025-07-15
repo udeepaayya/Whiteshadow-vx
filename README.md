@@ -65,7 +65,8 @@
 📡 Continuous Integration (GitHub Actions)
 
 <details>
-<summary>✨ Node.js CI Workflow (click to expand)</summary>name: Node.js CI
+<summary>✨ Node.js CI Workflow (click to expand)</summary>
+name: Node.js CI
 
 on:
   push:
