@@ -9,7 +9,7 @@
     "restart": "pm2 restart WHITESHADOW-MD"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "npm:asitha-new-v99",
+    "@whiskeysockets/baileys": "npm:baileys-pro@latest",
     "@adiwajshing/keyed-db": "^0.2.4",
     "@dark-yasiya/yt-dl.js": "1.0.5",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
@@ -21,7 +21,7 @@
     "jimp": "^0.16.1",
     "express": "latest",
     "moment-timezone": "^0.5.45",
-    "axios": "^1.2.5",
+    "axios": "^1.7.9",
     "crypto-digest-sync": "^1.0.0",
     "crypto-js": "latest",
     "file_size_url": "1.0.4",
