@@ -1,4 +1,3 @@
-
 const { cmd } = require('../command');
 const os = require("os");
 const { runtime } = require('../lib/functions');
@@ -28,29 +27,23 @@ async (conn, mek, m, { from, sender, reply }) => {
 ╰────────────────────◉
 > ${config.DESCRIPTION}`;
 
-        const buttons = [
-            { buttonId: config.PREFIX + 'menu', buttonText: { displayText: '📜 MENU' }, type: 1 },
-            { buttonId: config.PREFIX + 'ping', buttonText: { displayText: '⚡ PING' }, type: 1 }
-        ];
-
-        const buttonMessage = {
+        await conn.sendMessage(from, {
             image: { url: config.ALIVE_IMG },
             caption: status,
-            footer: config.FOOTER,
-            buttons: buttons,
-            headerType: 4,
             contextInfo: {
                 mentionedJid: [m.sender],
-                forwardingScore: 999,
-                isForwarded: true
+                forwardingScore: 1000,
+                isForwarded: true,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: '120363317972190466@newsletter',
+                    newsletterName: '👾ᏔᎻᎥᏆᎬՏᎻᎪᎠᎾᏇ ᎷᎠ👾',
+                    serverMessageId: 143
+                }
             }
-        };
-
-        await conn.sendMessage(from, buttonMessage, { quoted: mek });
+        }, { quoted: mek });
 
     } catch (e) {
         console.error("Alive Error:", e);
         reply(`An error occurred: ${e.message}`);
     }
 });
-```
