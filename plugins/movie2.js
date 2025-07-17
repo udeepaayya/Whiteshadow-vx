@@ -1,97 +1,143 @@
-/**
- * SinhalaSub Movie Search + 480p Downloader
- *  — Command:  .movie2 Titanic
- */
-const { cmd } = require('../command');   // 👈 exec ↠ cmd
-const axios = require('axios');
+const { cmd } = require("../command");
+const axios = require("axios");
+const NodeCache = require("node-cache");
 
-cmd(
-  {
-    pattern: 'movie2',        // ⬅️ නම clash නොවෙන්න movie2 / moviedl වගේ
-    react:   '🎬',
-    category:'download',
-    filename: __filename,
-    desc:    'Search SinhalaSub & download 480p movie'
-  },
+// Cache setup
+const movieCache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
 
-  async (conn, mek, m, { from, args, reply, react }) => {
+const theme = {
+  header: "🔍 *WHITESHADOW CINEMA* 🔍\n━━━━━━━━━━━━━━━━━━\n",
+  footer: "\n━━━━━━━━━━━━━━━━━━\n⚡ Powered by WhiteShadow",
+  box: (title, content) => `📦 *${title}*\n\n${content}${theme.footer}`,
+  emojis: ["🔸", "🎥", "📥", "🎞️", "📦", "⏬"]
+};
 
-    // movie name get
-    const text = args.length ? args.join(' ') : '';
-    if (!text) return reply('Please provide a movie name to search');
+cmd({
+  pattern: "movie2",
+  desc: "Search Sinhala-subbed movies and download",
+  category: "media",
+  react: "🎬",
+  filename: __filename
+}, async (conn, mek, m, { from, q, args }) => {
+  if (!q) {
+    return await conn.sendMessage(from, {
+      text: theme.box("Usage", "Use `.movie2 <movie name>` to search Sinhala-subbed films.\nEg: `.movie2 Fast X`"),
+    }, { quoted: mek });
+  }
 
-    await react('🔍');
-    reply('🔍 Searching for SinhalaSub movies...');
+  try {
+    const cacheKey = `movie_${q.toLowerCase()}`;
+    let data = movieCache.get(cacheKey);
 
-    // --- search call ---
-    let res = await axios.get(
-      `https://sadiya-tech-apis.vercel.app/movie/sinhalasub-search`,
-      { params: { text, apikey: 'sadiya' } }
-    ).then(r => r.data).catch(() => ({}));
+    if (!data) {
+      const url = `https://suhas-bro-api.vercel.app/movie/sinhalasub/search?text=${encodeURIComponent(q)}`;
+      const response = await axios.get(url);
+      data = response.data;
 
-    if (!res.status || !res.result?.length)
-      return reply('❌ No movies found for your search query');
+      if (!data.status || !data.result.data || data.result.data.length === 0) {
+        throw new Error("❌ No movies found!");
+      }
 
-    global.movieResults = res.result.slice(0, 5);   // keep top-5 only
+      movieCache.set(cacheKey, data);
+    }
 
-    // build list
-    let list = '🎬 *SinhalaSub Movie Results*\n\n' +
-      global.movieResults.map((v, i) => `*${i+1}.* ${v.title}`).join('\n') +
-      '\n\n*Reply with the number to download the movie*';
+    const movieList = data.result.data.map((m, i) => ({
+      number: i + 1,
+      title: m.title.replace(/Sinhala Subtitles.*$/, "").trim(),
+      link: m.link
+    }));
 
-    // send list & set up collector
-    const listMsg = await conn.sendMessage(from, { text: list }, { quoted: mek });
-    const hookId  = listMsg.key.id;
-
-    conn.nonSender(hookId, async (msg, txt, sender) => {
-
-      const pick = parseInt(txt);
-      if (isNaN(pick) || pick < 1 || pick > global.movieResults.length)
-        return conn.sendMessage(sender, { text: '❌ Invalid option!' }, { quoted: msg });
-
-      const chosen = global.movieResults[pick - 1];
-      if (!chosen?.link)
-        return conn.sendMessage(sender, { text: '❌ Movie link not available' }, { quoted: msg });
-
-      await conn.sendMessage(sender, { text: `📥 Getting links for: ${chosen.title}` }, { quoted: msg });
-
-      // --- download call ---
-      let dl = await axios.get(
-        `https://sadiya-tech-apis.vercel.app/movie/sinhalasub-dl`,
-        { params: { url: chosen.link, apikey: 'sadiya' } }
-      ).then(r => r.data).catch(() => ({}));
-
-      const info = dl.result || {};
-      const link480 = info.pixeldrain_dl_link?.find(x => x.quality === 'SD 480p');
-
-      if (!link480)
-        return conn.sendMessage(sender, { text: '❌ 480p quality not available' }, { quoted: msg });
-
-      // caption
-      let cap =
-        `🎬 *${info.title || chosen.title}*\n` +
-        (info.date          ? `📅 *Date:* ${info.date}\n` : '') +
-        (info.tmdbRate      ? `⭐ *TMDB Rate:* ${info.tmdbRate}/10\n` : '') +
-        (info.subtitle_author ? `📝 *Subtitle by:* ${info.subtitle_author}\n` : '') +
-        `\n📱 *Quality:* ${link480.quality}\n` +
-        `📦 *Size:* ${link480.size}\n` +
-        `⬇️ *Downloading...*`;
-
-      // send poster + details
-      if (info.image)
-        await conn.sendMessage(sender, { image: { url: info.image }, caption: cap }, { quoted: msg });
-      else
-        await conn.sendMessage(sender, { text: cap }, { quoted: msg });
-
-      // send file
-      await conn.sendMessage(sender, {
-        document: { url: link480.link },
-        fileName: `${(info.title || chosen.title).replace(/[^\w\s.-]/g, '')} - 480p.mp4`,
-        mimetype: 'video/mp4'
-      }, { quoted: msg });
-
-      delete global.movieResults;          // clean up memory
+    let replyText = `${theme.header}`;
+    movieList.forEach(m => {
+      replyText += `${theme.emojis[0]} ${m.number}. *${m.title}*\n`;
     });
+    replyText += `\n📩 Reply with a movie number to get download links\n🛑 Type *done* to cancel`;
 
-  } // handler
-);
+    const sentMsg = await conn.sendMessage(from, { text: theme.box("Search Results", replyText) }, { quoted: mek });
+
+    const movieMap = new Map();
+
+    const listener = async (update) => {
+      const msg = update.messages?.[0];
+      if (!msg?.message?.extendedTextMessage) return;
+
+      const replyText = msg.message.extendedTextMessage.text.trim();
+      const repliedId = msg.message.extendedTextMessage.contextInfo?.stanzaId;
+
+      if (replyText.toLowerCase() === "done") {
+        conn.ev.off("messages.upsert", listener);
+        await conn.sendMessage(from, { text: theme.box("Cancelled", "Search cancelled.") }, { quoted: msg });
+        return;
+      }
+
+      if (repliedId === sentMsg.key.id) {
+        const num = parseInt(replyText);
+        const selected = movieList.find(m => m.number === num);
+
+        if (!selected) {
+          return await conn.sendMessage(from, { text: theme.box("Invalid", "Invalid movie number.") }, { quoted: msg });
+        }
+
+        const fetchURL = `https://suhas-bro-api.vercel.app/movie/sinhalasub/movie?url=${encodeURIComponent(selected.link)}`;
+        const res = await axios.get(fetchURL);
+
+        const result = res.data.result.data;
+        const links = result.pixeldrain_dl || [];
+
+        if (!links.length) {
+          return await conn.sendMessage(from, {
+            text: theme.box("Unavailable", "No download links found for this movie.")
+          }, { quoted: msg });
+        }
+
+        let linkText = `🎬 *${selected.title}*\n\n`;
+        links.forEach((l, i) => {
+          linkText += `${theme.emojis[2]} ${i + 1}. *${l.quality}* (${l.size})\n`;
+        });
+        linkText += `\n📥 Reply with quality number to get download\n🛑 Type *done* to cancel`;
+
+        const downloadMsg = await conn.sendMessage(from, {
+          image: { url: result.image || "https://i.ibb.co/5Yb4VZy/snowflake.jpg" },
+          caption: theme.box("Download Options", linkText)
+        }, { quoted: msg });
+
+        movieMap.set(downloadMsg.key.id, { selected, links });
+      } else if (movieMap.has(repliedId)) {
+        const { selected, links } = movieMap.get(repliedId);
+        const choice = parseInt(replyText);
+        const chosen = links[choice - 1];
+
+        if (!chosen) {
+          return await conn.sendMessage(from, {
+            text: theme.box("Invalid", "Invalid quality number.")
+          }, { quoted: msg });
+        }
+
+        const sizeGB = chosen.size.toLowerCase().includes("gb")
+          ? parseFloat(chosen.size.toLowerCase().replace("gb", ""))
+          : parseFloat(chosen.size.toLowerCase().replace("mb", "")) / 1024;
+
+        if (sizeGB > 2) {
+          return await conn.sendMessage(from, {
+            text: theme.box("Large File", `File too large (${chosen.size})\nDirect Link: ${chosen.link}`)
+          }, { quoted: msg });
+        }
+
+        await conn.sendMessage(from, {
+          document: { url: chosen.link },
+          mimetype: "video/mp4",
+          fileName: `${selected.title} - ${chosen.quality}.mp4`,
+          caption: theme.box("Here You Go!", `🎞️ ${selected.title}\n📦 Quality: ${chosen.quality}\n⏬ Size: ${chosen.size}`)
+        }, { quoted: msg });
+      }
+    };
+
+    conn.ev.on("messages.upsert", listener);
+
+  } catch (err) {
+    console.log("movie2 error:", err.message);
+    await conn.sendMessage(from, {
+      text: theme.box("Error", `An error occurred!\n\n${err.message || "Try again later."}`)
+    }, { quoted: mek });
+  }
+});
