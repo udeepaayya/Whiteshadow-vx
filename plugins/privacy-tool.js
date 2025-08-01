@@ -296,32 +296,71 @@ async (conn, mek, m, { from, l, quoted, body, isCmd, command, args, q, isGroup, 
         l(e);
     }
 });
+
 cmd({
-    pattern: "getpp",
-    desc: "Fetch the profile picture of a tagged or replied user.",
-    category: "owner",
-    filename: __filename
-}, async (conn, mek, m, { quoted, isGroup, sender, participants, reply }) => {
-    try {
-        // Determine the target user
-        const targetJid = quoted ? quoted.sender : sender;
+  pattern: "getpp",
+  alias: [],
+  use: "pp",
+  desc: "Get profile picture of a user (replied user in group, or DM user)",
+  category: "tools",
+  react: "🖼️",
+  filename: __filename
+},
+async (conn, mek, m, { from, sender, reply, isGroup }) => {
+  try {
+    const quotedMsg = mek.message?.extendedTextMessage?.contextInfo?.participant;
+    const quotedKey = mek.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+    let targetJid;
 
-        if (!targetJid) return reply("⚠️ Please reply to a message to fetch the profile picture.");
-
-        // Fetch the user's profile picture URL
-        const userPicUrl = await conn.profilePictureUrl(targetJid, "image").catch(() => null);
-
-        if (!userPicUrl) return reply("⚠️ No profile picture found for the specified user.");
-
-        // Send the user's profile picture
-        await conn.sendMessage(m.chat, {
-            image: { url: userPicUrl },
-            caption: "🖼️ Here is the profile picture of the specified user."
-        });
-    } catch (e) {
-        console.error("Error fetching user profile picture:", e);
-        reply("❌ An error occurred while fetching the profile picture. Please try again later.");
+    if (isGroup) {
+      if (quotedMsg && quotedKey) {
+        targetJid = quotedMsg;
+      } else {
+        return reply("❌ Please reply to someone's message to get their profile picture.");
+      }
+    } else {
+      targetJid = from.endsWith("@s.whatsapp.net") ? from : sender;
     }
-});
 
-          
+    let imageUrl;
+    try {
+      imageUrl = await conn.profilePictureUrl(targetJid, 'image');
+    } catch {
+      imageUrl = "https://files.catbox.moe/ntqtnt.jpg";
+    }
+
+    const fakeVCard = {
+      key: {
+        fromMe: false,
+        participant: '0@s.whatsapp.net',
+        remoteJid: "status@broadcast"
+      },
+      message: {
+        contactMessage: {
+          displayName: "WHITESHADOW ✅",
+          vcard: "BEGIN:VCARD\nVERSION:3.0\nFN: WHITESHADOW ✅\nORG: WHITESHADOW-MD;\nTEL;type=CELL;type=VOICE;waid=94704896880:+94704896880\nEND:VCARD",
+          jpegThumbnail: Buffer.from([])
+        }
+      }
+    };
+
+    await conn.sendMessage(from, {
+      image: { url: imageUrl },
+      caption: `🖼️ Profile Picture of @${targetJid.split('@')[0]}`,
+      contextInfo: {
+        mentionedJid: [targetJid],
+        forwardingScore: 5,
+        isForwarded: true,
+        forwardedNewsletterMessageInfo: {
+          newsletterName: "WHITESHADOW-MD",
+          newsletterJid: "120363317972190466@newsletter"
+        }
+      }
+    }, { quoted: fakeVCard });
+
+  } catch (err) {
+    console.error("Error in getpp:", err);
+    reply("❌ Failed to fetch profile picture.");
+  }
+});
+      
