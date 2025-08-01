@@ -1,142 +1,140 @@
 const { cmd } = require('../command');
 const yts = require('yt-search');
-const axios = require("axios");
+const axios = require('axios');
+const { getBuffer } = require('../lib/functions');
 
 cmd({
-    pattern: "songx",
-    alias: ["playx"],
-    desc: "Download YouTube songs",
-    react: "🎶",
-    category: "main",
-    filename: __filename
-}, async (conn, mek, m, { from, quoted, q, reply }) => {
+  pattern: "song",
+  alias: ["play", "mp3"],
+  desc: "Download YouTube songs",
+  react: "🎶",
+  category: "media",
+  filename: __filename
+}, async (conn, m, { from, text, reply }) => {
+  try {
+    const q = text?.trim();
+    if (!q) return reply("🔎 Please provide a YouTube title or link, e.g. `.song Believer`");
+
+    await reply("🎧 Searching for your song...");
+
+    const search = await yts(q);
+    if (!search.videos?.length) return reply("❌ No results found for: " + q);
+
+    const data = search.videos[0];
+    const { title, thumbnail, url, timestamp, views, ago } = data;
+
+    const apiUrl = "https://api.giftedtech.web.id/api/download/dlmp3?apikey=gifted&url=" + encodeURIComponent(url);
+    let response;
     try {
-        q = q ? q : '';
-        if (!q) return reply("🔎 *Please provide a YouTube link or song title.*");
+      response = await axios.get(apiUrl);
+    } catch (e) {
+      console.error("Axios error:", e.message);
+      return reply("❌ API request failed. Try later.");
+    }
 
-        reply("*🎧 Searching for your song...*");
+    if (!response?.data?.success || !response.data.result?.download_url) {
+      return reply("❌ Failed to fetch audio for \"" + q + "\".");
+    }
+    const downloadUrl = response.data.result.download_url;
 
-        const search = await yts(q);
-        if (!search.videos || !search.videos.length) {
-            return reply("❌ No results found for: " + q);
-        }
-
-        const data = search.videos[0];
-        const url = data.url;
-
-        const caption = `
-╭━━〔 🎧 *WHITESHADOW SONG DOWNLOADER* 〕━━⬣
-┃🎵 *Title:* ${data.title}
-┃🕒 *Duration:* ${data.timestamp}
-┃👁 *Views:* ${data.views}
-┃📅 *Uploaded:* ${data.ago}
-┃🔗 *Link:* ${url}
-╰━━━〔 Reply 1 | 2 | 3 〕━━━⬣
+    const cap = `
+╭━━〔 🎧 WHITESHADOW‑MD SONG DOWNLOADER 〕━━⬣
+┃🎵 Title: ${title}
+┃⏱ Duration: ${timestamp}
+┃👁 Views: ${views}
+┃📅 Uploaded: ${ago}
+┃🔗 Link: ${url}
+╰━━━〔 Reply 1️⃣｜2️⃣｜3️⃣ 〕━━━⬣
 ┃1️⃣ Audio 🎧
 ┃2️⃣ Document 📁
 ┃3️⃣ Voice 🔊
-> 🔥 Powered by *WHITESHADOW-MD* 😈
-`;
+> 🔥 Powered by *WHITESHADOW‑MD* 😈
+`.trim();
 
-        const sentMsg = await conn.sendMessage(from, {
-            image: { url: data.thumbnail },
-            caption,
+    const thumbBuffer = await getBuffer(thumbnail);
+
+    const sentMsg = await conn.sendMessage(from, {
+      image: { url: thumbnail },
+      caption: cap,
+      contextInfo: {
+        mentionedJid: [m.sender],
+        externalAdReply: {
+          title: title.length > 30 ? title.slice(0, 27) + "..." : title,
+          body: "🎶 WHITESHADOW SONG BOT",
+          mediaType: 1,
+          thumbnailUrl: thumbnail,
+          sourceUrl: url,
+          showAdAttribution: true,
+          renderLargerThumbnail: true
+        }
+      }
+    }, { quoted: m });
+
+    const msgId = sentMsg.key.id;
+
+    conn.ev.on('messages.upsert', async upd => {
+      try {
+        const msg = upd.messages[0];
+        if (!msg.message) return;
+        const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
+        const isReply = msg.message.extendedTextMessage?.contextInfo?.stanzaId === msgId;
+        if (!isReply || !['1','2','3'].includes(text)) return;
+
+        await conn.sendMessage(from, { react: { text: '⬇️', key: msg.key } });
+
+        let payload = {};
+        if (text === '1') {
+          payload = {
+            audio: { url: downloadUrl },
+            mimetype: "audio/mp4",
+            ptt: false,
             contextInfo: {
-                externalAdReply: {
-                    title: data.title.length > 30 ? data.title.slice(0, 27) + "..." : data.title,
-                    body: "🎶 WHITESHADOW SONG BOT",
-                    mediaType: 1,
-                    thumbnailUrl: data.thumbnail,
-                    sourceUrl: url,
-                    showAdAttribution: true,
-                    renderLargerThumbnail: true
-                },
-                mentionedJid: [m.sender]
+              externalAdReply: {
+                title,
+                body: "🎧 WHITESHADOW‑MD",
+                thumbnailUrl: thumbnail,
+                sourceUrl: url,
+                mediaType: 1,
+                showAdAttribution: true,
+                renderLargerThumbnail: true
+              }
             }
-        }, { quoted: mek });
-
-        const messageID = sentMsg.key.id;
-
-        // Listen for reply
-        conn.ev.on('messages.upsert', async (msgUpdate) => {
-            try {
-                const msg = msgUpdate.messages[0];
-                if (!msg.message) return;
-
-                const txt = msg.message.conversation || msg.message.extendedTextMessage?.text;
-                const isReply = msg.message.extendedTextMessage?.contextInfo?.stanzaId === messageID;
-                const replyFrom = msg.key.remoteJid;
-
-                if (!isReply || !['1', '2', '3'].includes(txt)) return;
-
-                await conn.sendMessage(replyFrom, { react: { text: '⬇️', key: msg.key } });
-
-                const apiUrl = "https://api.giftedtech.web.id/api/download/dlmp3?apikey=gifted&url=" + encodeURIComponent(url);
-                const response = await axios.get(apiUrl);
-
-                if (!response.data.success) {
-                    return reply("❌ Failed to fetch audio for \"" + q + "\".");
-                }
-
-                const downloadUrl = response.data.result.download_url;
-
-                if (txt === '1') {
-                    await conn.sendMessage(replyFrom, {
-                        audio: { url: downloadUrl },
-                        mimetype: "audio/mp4",
-                        ptt: false,
-                        contextInfo: {
-                            externalAdReply: {
-                                title: data.title,
-                                body: "🎧 WHITESHADOW-MD",
-                                thumbnailUrl: data.thumbnail,
-                                sourceUrl: url,
-                                mediaType: 1,
-                                showAdAttribution: true,
-                                renderLargerThumbnail: true
-                            }
-                        }
-                    }, { quoted: msg });
-
-                } else if (txt === '2') {
-                    await conn.sendMessage(replyFrom, {
-                        document: { url: downloadUrl },
-                        mimetype: "audio/mp3",
-                        fileName: `${data.title}.mp3`,
-                        caption: "> 🎧 *Powered by WHITESHADOW-MD* 😈"
-                    }, { quoted: msg });
-
-                } else if (txt === '3') {
-                    await conn.sendMessage(replyFrom, {
-                        audio: { url: downloadUrl },
-                        mimetype: "audio/mp4",
-                        ptt: true,
-                        contextInfo: {
-                            externalAdReply: {
-                                title: data.title,
-                                body: "🎤 WHITESHADOW-MD",
-                                thumbnailUrl: data.thumbnail,
-                                sourceUrl: url,
-                                mediaType: 1,
-                                showAdAttribution: true,
-                                renderLargerThumbnail: true
-                            }
-                        }
-                    }, { quoted: msg });
-                }
-
-                await conn.sendMessage(replyFrom, { react: { text: '✅', key: msg.key } });
-
-            } catch (err) {
-                console.log("Listener error: ", err.message);
+          };
+        } else if (text === '2') {
+          payload = {
+            document: { url: downloadUrl },
+            mimetype: "audio/mp3",
+            fileName: `${title}.mp3`,
+            caption: "> 🎧 *Powered by WHITESHADOW‑MD*"
+          };
+        } else if (text === '3') {
+          payload = {
+            audio: { url: downloadUrl },
+            mimetype: "audio/mp4",
+            ptt: true,
+            contextInfo: {
+              externalAdReply: {
+                title,
+                body: "🎤 WHITESHADOW‑MD Voice",
+                thumbnailUrl: thumbnail,
+                sourceUrl: url,
+                mediaType: 1,
+                showAdAttribution: true,
+                renderLargerThumbnail: true
+              }
             }
-        });
+          };
+        }
 
-    } catch (e) {
-        console.error(e);
-        reply("❌ An unexpected error occurred.");
-    }
+        await conn.sendMessage(from, payload, { quoted: msg });
+        await conn.sendMessage(from, { react: { text: '✅', key: msg.key } });
+      } catch(err) {
+        console.log("Listener MSG error:", err.message);
+      }
+    });
+
+  } catch(e) {
+    console.error("Main song catch:", e);
+    reply("❌ Unexpected error occurred.");
+  }
 });
-
-
-
