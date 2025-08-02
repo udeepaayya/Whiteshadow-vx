@@ -70,17 +70,23 @@ cmd({
       }
     }, { quoted: m });
 
-    const msgId = sentMsg.key.id;
+    const msgId = sentMsg?.key?.id;
 
+    // Listener only for replies to this message
     conn.ev.on('messages.upsert', async upd => {
       try {
-        const msg = upd.messages[0];
-        if (!msg.message) return;
+        const msg = upd.messages?.[0];
+        if (!msg || !msg.message || msg.key.fromMe) return;
+
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
         const isReply = msg.message.extendedTextMessage?.contextInfo?.stanzaId === msgId;
-        if (!isReply || !['1','2','3'].includes(text)) return;
 
-        await conn.sendMessage(from, { react: { text: '⬇️', key: msg.key } });
+        if (!isReply || !['1', '2', '3'].includes(text)) return;
+
+        const remoteJid = msg.key.remoteJid || from;
+        const safeQuoted = msg.key?.id && remoteJid ? msg : undefined;
+
+        await conn.sendMessage(remoteJid, { react: { text: '⬇️', key: msg.key } });
 
         let payload = {};
         if (text === '1') {
@@ -126,14 +132,14 @@ cmd({
           };
         }
 
-        await conn.sendMessage(from, payload, { quoted: msg });
-        await conn.sendMessage(from, { react: { text: '✅', key: msg.key } });
-      } catch(err) {
-        console.log("Listener MSG error:", err.message);
+        await conn.sendMessage(remoteJid, payload, { quoted: safeQuoted });
+        await conn.sendMessage(remoteJid, { react: { text: '✅', key: msg.key } });
+      } catch (err) {
+        console.error("Listener MSG error:", err);
       }
     });
 
-  } catch(e) {
+  } catch (e) {
     console.error("Main song catch:", e);
     reply("❌ Unexpected error occurred.");
   }
