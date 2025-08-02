@@ -1,151 +1,71 @@
-const { cmd } = require('../command');
-const yts = require('yt-search');
-const axios = require('axios');
-const { getBuffer } = require('../lib/functions');
+const axios = require("axios");
+const fs = require("fs");
+const { cmd } = require("../command");
 
-function safeQuotedMessage(msg) {
-  if (!msg?.key?.id || !msg?.key?.remoteJid) {
-    console.warn("⛔ Skipping unsafe quoted message due to missing JID");
-    return undefined;
-  }
-  return msg;
-}
+let songData = {};
 
 cmd({
   pattern: "songx",
-  alias: ["playx", "mp3x"],
-  desc: "Download YouTube songs",
-  react: "🎶",
-  category: "media",
-  filename: __filename
-}, async (conn, m, { from, text, reply }) => {
+  desc: "Download song from YouTube with format options",
+  category: "music",
+  use: ".songx <YouTube URL>",
+  filename: __filename,
+}, async (conn, m, msg, { args, reply }) => {
+  if (!args[0]) return reply("🎧 *Please provide a YouTube link!*\n\nExample: .songx https://youtu.be/xyz");
+
+  const url = args[0];
+  reply("🔎 *Fetching song info...*");
+
   try {
-    const q = text?.trim();
-    if (!q) return reply("🔎 Please provide a YouTube title or link, e.g. `.song Believer`");
+    const res = await axios.get(`https://api.giftedtech.web.id/api/download/dlmp3?apikey=gifted&url=${url}`);
+    const data = res.data;
 
-    await reply("🎧 Searching for your song...");
+    if (!data || !data.result || !data.result.url) return reply("❌ *Failed to fetch song.*");
 
-    const search = await yts(q);
-    if (!search.videos?.length) return reply("❌ No results found for: " + q);
+    // Save temporarily for user
+    songData[msg.sender] = {
+      title: data.result.title || "Song",
+      audioUrl: data.result.url,
+    };
 
-    const data = search.videos[0];
-    const { title, thumbnail, url, timestamp, views, ago } = data;
-
-    const apiUrl = "https://api.giftedtech.web.id/api/download/dlmp3?apikey=gifted&url=" + encodeURIComponent(url);
-    let response;
-    try {
-      response = await axios.get(apiUrl);
-    } catch (e) {
-      console.error("Axios error:", e.message);
-      return reply("❌ API request failed. Try again later.");
-    }
-
-    if (!response?.data?.success || !response.data.result?.download_url) {
-      return reply("❌ Failed to fetch audio for \"" + q + "\".");
-    }
-    const downloadUrl = response.data.result.download_url;
-
-    const cap = `
-╭━━〔 🎧 WHITESHADOW‑MD SONG DOWNLOADER 〕━━⬣
-┃🎵 Title: ${title}
-┃⏱ Duration: ${timestamp}
-┃👁 Views: ${views}
-┃📅 Uploaded: ${ago}
-┃🔗 Link: ${url}
-╰━━━〔 Reply 1️⃣｜2️⃣｜3️⃣ 〕━━━⬣
-┃1️⃣ Audio 🎧
-┃2️⃣ Document 📁
-┃3️⃣ Voice 🔊
-> 🔥 Powered by *WHITESHADOW‑MD* 😈
-`.trim();
-
-    const thumbBuffer = await getBuffer(thumbnail);
-
-    const sentMsg = await conn.sendMessage(from, {
-      image: { url: thumbnail },
-      caption: cap,
-      contextInfo: {
-        mentionedJid: [m.sender],
-        externalAdReply: {
-          title: title.length > 30 ? title.slice(0, 27) + "..." : title,
-          body: "🎶 WHITESHADOW SONG BOT",
-          mediaType: 1,
-          thumbnailUrl: thumbnail,
-          sourceUrl: url,
-          showAdAttribution: true,
-          renderLargerThumbnail: true
-        }
-      }
-    }, { quoted: safeQuotedMessage(m) });
-
-    const msgId = sentMsg?.key?.id;
-
-    conn.ev.on('messages.upsert', async upd => {
-      try {
-        const msg = upd.messages?.[0];
-        if (!msg || !msg.message || msg.key.fromMe) return;
-
-        const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
-        const isReply = msg.message.extendedTextMessage?.contextInfo?.stanzaId === msgId;
-        const remoteJid = msg.key.remoteJid || from;
-
-        if (!isReply || !['1', '2', '3'].includes(text)) return;
-
-        await conn.sendMessage(remoteJid, { react: { text: '⬇️', key: msg.key } });
-
-        let payload = {};
-        if (text === '1') {
-          payload = {
-            audio: { url: downloadUrl },
-            mimetype: "audio/mp4",
-            ptt: false,
-            contextInfo: {
-              externalAdReply: {
-                title,
-                body: "🎧 WHITESHADOW‑MD",
-                thumbnailUrl: thumbnail,
-                sourceUrl: url,
-                mediaType: 1,
-                showAdAttribution: true,
-                renderLargerThumbnail: true
-              }
-            }
-          };
-        } else if (text === '2') {
-          payload = {
-            document: { url: downloadUrl },
-            mimetype: "audio/mp3",
-            fileName: `${title}.mp3`,
-            caption: "> 🎧 *Powered by WHITESHADOW‑MD*"
-          };
-        } else if (text === '3') {
-          payload = {
-            audio: { url: downloadUrl },
-            mimetype: "audio/mp4",
-            ptt: true,
-            contextInfo: {
-              externalAdReply: {
-                title,
-                body: "🎤 WHITESHADOW‑MD Voice",
-                thumbnailUrl: thumbnail,
-                sourceUrl: url,
-                mediaType: 1,
-                showAdAttribution: true,
-                renderLargerThumbnail: true
-              }
-            }
-          };
-        }
-
-        await conn.sendMessage(remoteJid, payload, { quoted: safeQuotedMessage(msg) });
-        await conn.sendMessage(remoteJid, { react: { text: '✅', key: msg.key } });
-      } catch (err) {
-        console.error("Listener MSG error:", err);
-      }
-    });
-
+    reply(`🎶 *${data.result.title}*\n\n📥 Please select format:\n\n1. Audio 🎵\n2. File 📁\n3. VN 🎙️\n\n_Reply with number 1/2/3_`);
   } catch (e) {
-    console.error("Main song catch:", e);
-    reply("❌ Unexpected error occurred.");
+    console.log(e);
+    reply("⚠️ *Error fetching audio data!*");
+  }
+});
+
+// Handle reply
+cmd({
+  on: "text",
+}, async (conn, m, msg, { reply }) => {
+  const body = m.body?.trim();
+  const user = msg.sender;
+  const data = songData[user];
+
+  if (!data || !["1", "2", "3"].includes(body)) return;
+
+  try {
+    const audioBuffer = await axios.get(data.audioUrl, { responseType: "arraybuffer" }).then(res => res.data);
+
+    if (body === "1") {
+      reply("🔊 Sending as *Audio*...");
+      await conn.sendMessage(msg.from, { audio: audioBuffer, mimetype: 'audio/mpeg' }, { quoted: m });
+    } else if (body === "2") {
+      reply("📁 Sending as *File*...");
+      await conn.sendMessage(msg.from, {
+        document: audioBuffer,
+        mimetype: 'audio/mpeg',
+        fileName: `${data.title}.mp3`
+      }, { quoted: m });
+    } else if (body === "3") {
+      reply("🎙️ Sending as *Voice Note*...");
+      await conn.sendMessage(msg.from, { audio: audioBuffer, mimetype: 'audio/mpeg', ptt: true }, { quoted: m });
+    }
+
+    delete songData[user];
+  } catch (e) {
+    console.log(e);
+    reply("❌ *Error sending audio file.*");
   }
 });
