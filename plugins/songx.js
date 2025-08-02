@@ -1,71 +1,43 @@
-const axios = require("axios");
-const fs = require("fs");
-const { cmd } = require("../command");
-
-let songData = {};
+const { cmd } = require('../command')
+const axios = require('axios')
 
 cmd({
-  pattern: "songx",
-  desc: "Download song from YouTube with format options",
-  category: "music",
-  use: ".songx <YouTube URL>",
-  filename: __filename,
-}, async (conn, m, msg, { args, reply }) => {
-  if (!args[0]) return reply("🎧 *Please provide a YouTube link!*\n\nExample: .songx https://youtu.be/xyz");
+    pattern: "songx",
+    alias: ["musicx"],
+    category: "downloader",
+    desc: "Download song using GiftedTech API",
+    use: '.songx <YouTube link>',
+    react: "🎵",
+    filename: __filename
+}, async (conn, m, text, { args, reply }) => {
+    try {
+        if (!args || !args[0]) return reply("❌ *Provide a valid YouTube link.*")
 
-  const url = args[0];
-  reply("🔎 *Fetching song info...*");
+        const url = args[0];
+        const api = `https://api.giftedtech.web.id/api/download/dlmp3?apikey=gifted&url=${encodeURIComponent(url)}`
+        const { data } = await axios.get(api)
 
-  try {
-    const res = await axios.get(`https://api.giftedtech.web.id/api/download/dlmp3?apikey=gifted&url=${url}`);
-    const data = res.data;
+        if (!data || !data.result || !data.result.download_url) {
+            return reply("❌ *Failed to fetch song. Try another link.*")
+        }
 
-    if (!data || !data.result || !data.result.url) return reply("❌ *Failed to fetch song.*");
+        let caption = `🎶 *Title:* ${data.result.title || "Unknown"}\n`
+        caption += `🎧 *Quality:* ${data.result.quality || "N/A"}\n`
+        caption += `🔗 *Source:* ${url}`
 
-    // Save temporarily for user
-    songData[msg.sender] = {
-      title: data.result.title || "Song",
-      audioUrl: data.result.url,
-    };
+        await conn.sendMessage(m.from, {
+            image: { url: data.result.thumbnail },
+            caption,
+        }, { quoted: m })
 
-    reply(`🎶 *${data.result.title}*\n\n📥 Please select format:\n\n1. Audio 🎵\n2. File 📁\n3. VN 🎙️\n\n_Reply with number 1/2/3_`);
-  } catch (e) {
-    console.log(e);
-    reply("⚠️ *Error fetching audio data!*");
-  }
-});
+        await conn.sendMessage(m.from, {
+            audio: { url: data.result.download_url },
+            mimetype: 'audio/mp4',
+            ptt: false
+        }, { quoted: m })
 
-// Handle reply
-cmd({
-  on: "text",
-}, async (conn, m, msg, { reply }) => {
-  const body = m.body?.trim();
-  const user = msg.sender;
-  const data = songData[user];
-
-  if (!data || !["1", "2", "3"].includes(body)) return;
-
-  try {
-    const audioBuffer = await axios.get(data.audioUrl, { responseType: "arraybuffer" }).then(res => res.data);
-
-    if (body === "1") {
-      reply("🔊 Sending as *Audio*...");
-      await conn.sendMessage(msg.from, { audio: audioBuffer, mimetype: 'audio/mpeg' }, { quoted: m });
-    } else if (body === "2") {
-      reply("📁 Sending as *File*...");
-      await conn.sendMessage(msg.from, {
-        document: audioBuffer,
-        mimetype: 'audio/mpeg',
-        fileName: `${data.title}.mp3`
-      }, { quoted: m });
-    } else if (body === "3") {
-      reply("🎙️ Sending as *Voice Note*...");
-      await conn.sendMessage(msg.from, { audio: audioBuffer, mimetype: 'audio/mpeg', ptt: true }, { quoted: m });
+    } catch (e) {
+        console.error(e)
+        return reply("❌ *Failed to download song.*")
     }
-
-    delete songData[user];
-  } catch (e) {
-    console.log(e);
-    reply("❌ *Error sending audio file.*");
-  }
-});
+})
