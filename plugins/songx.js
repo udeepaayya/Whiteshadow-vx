@@ -3,6 +3,14 @@ const yts = require('yt-search');
 const axios = require('axios');
 const { getBuffer } = require('../lib/functions');
 
+function safeQuotedMessage(msg) {
+  if (!msg?.key?.id || !msg?.key?.remoteJid) {
+    console.warn("⛔ Skipping unsafe quoted message due to missing JID");
+    return undefined;
+  }
+  return msg;
+}
+
 cmd({
   pattern: "songx",
   alias: ["playx", "mp3x"],
@@ -29,7 +37,7 @@ cmd({
       response = await axios.get(apiUrl);
     } catch (e) {
       console.error("Axios error:", e.message);
-      return reply("❌ API request failed. Try later.");
+      return reply("❌ API request failed. Try again later.");
     }
 
     if (!response?.data?.success || !response.data.result?.download_url) {
@@ -68,11 +76,10 @@ cmd({
           renderLargerThumbnail: true
         }
       }
-    }, { quoted: m });
+    }, { quoted: safeQuotedMessage(m) });
 
     const msgId = sentMsg?.key?.id;
 
-    // Listener only for replies to this message
     conn.ev.on('messages.upsert', async upd => {
       try {
         const msg = upd.messages?.[0];
@@ -80,11 +87,9 @@ cmd({
 
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
         const isReply = msg.message.extendedTextMessage?.contextInfo?.stanzaId === msgId;
+        const remoteJid = msg.key.remoteJid || from;
 
         if (!isReply || !['1', '2', '3'].includes(text)) return;
-
-        const remoteJid = msg.key.remoteJid || from;
-        const safeQuoted = msg.key?.id && remoteJid ? msg : undefined;
 
         await conn.sendMessage(remoteJid, { react: { text: '⬇️', key: msg.key } });
 
@@ -132,7 +137,7 @@ cmd({
           };
         }
 
-        await conn.sendMessage(remoteJid, payload, { quoted: safeQuoted });
+        await conn.sendMessage(remoteJid, payload, { quoted: safeQuotedMessage(msg) });
         await conn.sendMessage(remoteJid, { react: { text: '✅', key: msg.key } });
       } catch (err) {
         console.error("Listener MSG error:", err);
