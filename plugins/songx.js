@@ -4,8 +4,8 @@ const axios = require('axios');
 const { getBuffer } = require('../lib/functions');
 
 cmd({
-  pattern: "song",
-  alias: ["play", "mp3"],
+  pattern: "songx",
+  alias: ["playx", "mp3x"],
   desc: "Download YouTube songs",
   react: "🎶",
   category: "media",
