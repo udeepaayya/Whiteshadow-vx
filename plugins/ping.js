@@ -62,6 +62,15 @@ async (conn, mek, m, { from, sender, reply }) => {
 
 // ping2 
 
+const config = require('../config');
+const { cmd, commands } = require('../command');
+const fetch = require("node-fetch");
+
+const fetchBuffer = async (url) => {
+    const res = await fetch(url);
+    return await res.buffer();
+};
+
 cmd({
     pattern: "ping2",
     alias: ["speed2", "pong2"],
@@ -78,14 +87,12 @@ async (conn, mek, m, { from, sender, reply }) => {
         const emojis = ['🔥', '⚡', '🚀', '💨', '🎯', '🎉', '🌟', '💥', '🕐', '🔹', '💎', '🏆', '🎶', '🌠', '🌀', '🔱', '🛡️', '✨'];
         const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
 
-        // React with random emoji
         await conn.sendMessage(from, {
             react: { text: randomEmoji, key: mek.key }
         });
 
         const ping = Date.now() - startTime;
 
-        // Speed badge and color
         let badge = '🐢 Slow', color = '🔴';
         if (ping <= 150) {
             badge = '🚀 Super Fast';
@@ -98,35 +105,21 @@ async (conn, mek, m, { from, sender, reply }) => {
             color = '🟠';
         }
 
-        const text = `> *WHITESHADOW-MD ʀᴇsᴘᴏɴsᴇ: ${ping} ms ${randomEmoji}*\n> *sᴛᴀᴛᴜs: ${color} ${badge}*\n> *ᴠᴇʀsɪᴏɴ: ${config.version}*`;
+        const responseText = `> *WHITESHADOW-MD ʀᴇsᴘᴏɴsᴇ: ${ping} ms ${randomEmoji}*\n> *sᴛᴀᴛᴜs: ${color} ${badge}*\n> *ᴠᴇʀsɪᴏɴ: ${config.version}*`;
 
-        // ExternalAdReply preview
+        // Send both preview + result together
         await conn.sendMessage(from, {
-            text: "whiteshadow speed test",
+            text: "Powering Smart Automation\n\n" + responseText,
             contextInfo: {
                 externalAdReply: {
                     title: "WhatsApp",
                     body: "Group",
                     mediaType: 1,
-                    thumbnailUrl: "https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg", // transparent WA icon (or replace)
+                    thumbnail: await fetchBuffer("https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg"),
                     renderLargerThumbnail: true,
-                    sourceUrl: "https://whatsapp.com" // optional
-                }
-            }
-        }, { quoted: mek });
-
-        // Send result
-        await conn.sendMessage(from, {
-            text,
-            contextInfo: {
-                mentionedJid: [sender],
-                forwardingScore: 999,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363317972190466@newsletter',
-                    newsletterName: "WHITESHADOW-MD",
-                    serverMessageId: 143
-                }
+                    sourceUrl: "https://chat.whatsapp.com/invite-link" // optional: use a real invite link
+                },
+                mentionedJid: [sender]
             }
         }, { quoted: mek });
 
