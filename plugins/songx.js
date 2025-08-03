@@ -10,12 +10,12 @@ function replaceYouTubeID(url) {
 }
 
 cmd({
-    pattern: "song",
-    alias: ["s","play"],
+    pattern: "songx",
+    alias: ["sx","playx"],
     react: "🎵",
     desc: "Download Ytmp3",
     category: "download",
-    use: ".song <Text or YT URL>",
+    use: ".songx <Text or YT URL>",
     filename: __filename
 }, async (conn, m, mek, { from, q, reply }) => {
     try {
