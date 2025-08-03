@@ -98,9 +98,24 @@ async (conn, mek, m, { from, sender, reply }) => {
             color = '🟠';
         }
 
-        // Final message
         const text = `> *WHITESHADOW-MD ʀᴇsᴘᴏɴsᴇ: ${ping} ms ${randomEmoji}*\n> *sᴛᴀᴛᴜs: ${color} ${badge}*\n> *ᴠᴇʀsɪᴏɴ: ${config.version}*`;
 
+        // ExternalAdReply preview
+        await conn.sendMessage(from, {
+            text: "whiteshadow speed test",
+            contextInfo: {
+                externalAdReply: {
+                    title: "WhatsApp",
+                    body: "Group",
+                    mediaType: 1,
+                    thumbnailUrl: "https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg", // transparent WA icon (or replace)
+                    renderLargerThumbnail: true,
+                    sourceUrl: "https://whatsapp.com" // optional
+                }
+            }
+        }, { quoted: mek });
+
+        // Send result
         await conn.sendMessage(from, {
             text,
             contextInfo: {
@@ -120,4 +135,3 @@ async (conn, mek, m, { from, sender, reply }) => {
         reply(`⚠️ Error: ${e.message}`);
     }
 });
-
