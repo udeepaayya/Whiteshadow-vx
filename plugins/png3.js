@@ -46,7 +46,7 @@ END:VCARD`,
     const ping = Date.now() - start;
 
     await conn.sendMessage(from, {
-      text: `📇 *Contact Card: Chamod Nimsara*\n\n⚡ *Speed:* \`${ping} ms\``,
+      text: `📇 *Owner: Chamod Nimsara*\n\n⚡ *Speed:* \`${ping} ms\``,
     }, { quoted: contactCard });
 
   } catch (err) {
