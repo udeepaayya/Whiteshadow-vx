@@ -1,4 +1,4 @@
-const axios = require('axios');
+const axios = require("axios");
 const { cmd } = require('../command');
 const os = require("os");
 const { runtime } = require('../lib/functions');
@@ -12,23 +12,21 @@ cmd({
     react: "⚡",
     filename: __filename
 },
-async (conn, mek, m, { from, sender, reply }) => {
+async (conn, mek, m, { from, reply }) => {
     try {
-        // 🔗 Video URL (must be under 16s, square, with audio)
-        const videoUrl = 'https://files.catbox.moe/h6d32b.mp4';
+        // 1️⃣ - Download the video
+        const videoUrl = "https://files.catbox.moe/h6d32b.mp4"; // must be square + audio
+        const response = await axios.get(videoUrl, { responseType: "arraybuffer" });
+        const videoBuffer = Buffer.from(response.data, "binary");
 
-        // ⬇️ Download video as buffer
-        const response = await axios.get(videoUrl, { responseType: 'arraybuffer' });
-        const videoBuffer = Buffer.from(response.data, 'binary');
-
-        // 🌀 Send video as round "video note"
+        // 2️⃣ - Send the circular video note
         await conn.sendMessage(from, {
             video: videoBuffer,
-            mimetype: 'video/mp4',
-            ptt: true // 👈 this is what makes it a video note (round)
+            mimetype: "video/mp4",
+            ptt: true  // ✅ This makes it a video note (circular)
         }, { quoted: mek });
 
-        // 🧾 After that, send caption message
+        // 3️⃣ - Send the alive message afterward
         const status = `
 ╭───〔 *🤖 ${config.BOT_NAME} STATUS* 〕───◉
 │✨ *Bot is Active & Online!*
@@ -47,8 +45,8 @@ async (conn, mek, m, { from, sender, reply }) => {
             caption: status
         }, { quoted: mek });
 
-    } catch (e) {
-        console.error("Alive Error:", e);
-        reply(`❌ Error: ${e.message}`);
+    } catch (err) {
+        console.error(err);
+        reply("❌ Error sending video note.");
     }
 });
