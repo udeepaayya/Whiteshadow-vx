@@ -14,21 +14,21 @@ cmd({
 },
 async (conn, mek, m, { from, sender, reply }) => {
     try {
+        // 🔗 Video URL (must be under 16s, square, with audio)
         const videoUrl = 'https://files.catbox.moe/h6d32b.mp4';
 
         // ⬇️ Download video as buffer
         const response = await axios.get(videoUrl, { responseType: 'arraybuffer' });
         const videoBuffer = Buffer.from(response.data, 'binary');
 
-        // 🌀 Send as round video note WITH sound
+        // 🌀 Send video as round "video note"
         await conn.sendMessage(from, {
             video: videoBuffer,
             mimetype: 'video/mp4',
-            ptt: true,          // this makes it a round video note
-            gifPlayback: false  // ensure it's NOT treated as mute gif
+            ptt: true // 👈 this is what makes it a video note (round)
         }, { quoted: mek });
 
-        // 🧾 Send caption image after that
+        // 🧾 After that, send caption message
         const status = `
 ╭───〔 *🤖 ${config.BOT_NAME} STATUS* 〕───◉
 │✨ *Bot is Active & Online!*
@@ -44,21 +44,11 @@ async (conn, mek, m, { from, sender, reply }) => {
 
         await conn.sendMessage(from, {
             image: { url: config.ALIVE_IMG },
-            caption: status,
-            contextInfo: {
-                mentionedJid: [m.sender],
-                forwardingScore: 1000,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363317972190466@newsletter',
-                    newsletterName: '👾ᏔᎻᎥᏆᎬՏᎻᎪᎠᎾᏇ ᎷᎠ👾',
-                    serverMessageId: 143
-                }
-            }
+            caption: status
         }, { quoted: mek });
 
     } catch (e) {
         console.error("Alive Error:", e);
-        reply(`Error occurred: ${e.message}`);
+        reply(`❌ Error: ${e.message}`);
     }
 });
