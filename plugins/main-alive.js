@@ -1,3 +1,4 @@
+const axios = require('axios');
 const { cmd } = require('../command');
 const os = require("os");
 const { runtime } = require('../lib/functions');
@@ -13,10 +14,24 @@ cmd({
 },
 async (conn, mek, m, { from, sender, reply }) => {
     try {
+        const videoUrl = 'https://files.catbox.moe/h6d32b.mp4';
+
+        // 📦 Download from URL
+        const response = await axios.get(videoUrl, { responseType: 'arraybuffer' });
+        const videoBuffer = Buffer.from(response.data, 'binary');
+
+        // 🎥 Send as a round video note
+        await conn.sendMessage(from, {
+            video: videoBuffer,
+            mimetype: 'video/mp4',
+            ptt: true,          // makes it round-style
+            gifPlayback: true   // optional playback hint
+        }, { quoted: mek });
+
+        // 🧾 Build status message
         const status = `
 ╭───〔 *🤖 ${config.BOT_NAME} STATUS* 〕───◉
 │✨ *Bot is Active & Online!*
-│
 │🧠 *Owner:* ${config.OWNER_NAME}
 │⚡ *Version:* 4.0.0
 │📝 *Prefix:* [${config.PREFIX}]
@@ -27,6 +42,7 @@ async (conn, mek, m, { from, sender, reply }) => {
 ╰────────────────────◉
 > ${config.DESCRIPTION}`;
 
+        // 🖼️ Send status image + caption
         await conn.sendMessage(from, {
             image: { url: config.ALIVE_IMG },
             caption: status,
@@ -44,6 +60,6 @@ async (conn, mek, m, { from, sender, reply }) => {
 
     } catch (e) {
         console.error("Alive Error:", e);
-        reply(`An error occurred: ${e.message}`);
+        reply(`Error occurred: ${e.message}`);
     }
 });
