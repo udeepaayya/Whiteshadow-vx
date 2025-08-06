@@ -16,19 +16,19 @@ async (conn, mek, m, { from, sender, reply }) => {
     try {
         const videoUrl = 'https://files.catbox.moe/h6d32b.mp4';
 
-        // 📦 Download from URL
+        // ⬇️ Download video as buffer
         const response = await axios.get(videoUrl, { responseType: 'arraybuffer' });
         const videoBuffer = Buffer.from(response.data, 'binary');
 
-        // 🎥 Send as a round video note
+        // 🌀 Send as round video note WITH sound
         await conn.sendMessage(from, {
             video: videoBuffer,
             mimetype: 'video/mp4',
-            ptt: true,          // makes it round-style
-            gifPlayback: true   // optional playback hint
+            ptt: true,          // this makes it a round video note
+            gifPlayback: false  // ensure it's NOT treated as mute gif
         }, { quoted: mek });
 
-        // 🧾 Build status message
+        // 🧾 Send caption image after that
         const status = `
 ╭───〔 *🤖 ${config.BOT_NAME} STATUS* 〕───◉
 │✨ *Bot is Active & Online!*
@@ -42,7 +42,6 @@ async (conn, mek, m, { from, sender, reply }) => {
 ╰────────────────────◉
 > ${config.DESCRIPTION}`;
 
-        // 🖼️ Send status image + caption
         await conn.sendMessage(from, {
             image: { url: config.ALIVE_IMG },
             caption: status,
