@@ -1,9 +1,10 @@
 const config = require('../config');
+const config = require('../config');
 const { cmd } = require('../command');
 const { ytsearch } = require('@dark-yasiya/yt-dl.js');
+const fetch = require('node-fetch');
 
 // MP4 video download
-
 cmd({ 
     pattern: "mp4", 
     alias: ["video"], 
@@ -20,20 +21,22 @@ cmd({
         if (yt.results.length < 1) return reply("No results found!");
         
         let yts = yt.results[0];  
-        let apiUrl = `https://apis.davidcyriltech.my.id/download/ytmp4?url=${encodeURIComponent(yts.url)}`;
+        let apiUrl = `https://apis-keith.vercel.app/download/dlmp4?url=${encodeURIComponent(yts.url)}`;
         
         let response = await fetch(apiUrl);
         let data = await response.json();
         
-        if (data.status !== 200 || !data.success || !data.result.download_url) {
+        if (!data.status || !data.result?.success || !data.result?.data?.downloadUrl) {
             return reply("Failed to fetch the video. Please try again later.");
         }
 
+        let vid = data.result.data;
+
         let ytmsg = `📹 *Video Downloader*
-🎬 *Title:* ${yts.title}
-⏳ *Duration:* ${yts.timestamp}
-👀 *Views:* ${yts.views}
-👤 *Author:* ${yts.author.name}
+🎬 *Title:* ${vid.title}
+📀 *Format:* ${vid.format}
+📡 *Quality:* ${vid.quality}p
+⏳ *Duration:* ${vid.duration} sec
 🔗 *Link:* ${yts.url}
 > Powered By WHITESHADOW-MD 👑️`;
 
@@ -41,9 +44,10 @@ cmd({
         await conn.sendMessage(
             from, 
             { 
-                video: { url: data.result.download_url }, 
+                video: { url: vid.downloadUrl }, 
                 caption: ytmsg,
-                mimetype: "video/mp4"
+                mimetype: "video/mp4",
+                thumbnail: await (await fetch(vid.thumbnail)).buffer()
             }, 
             { quoted: mek }
         );
@@ -53,7 +57,6 @@ cmd({
         reply("An error occurred. Please try again later.");
     }
 });
-
 // MP3 song download 
 
 cmd({ 
