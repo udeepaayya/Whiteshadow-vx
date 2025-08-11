@@ -61,7 +61,7 @@
     "qrcode-reader": "^1.0.4", 
     "@mrnima/tiktok-downloader":"1.0.0",
     "@mrnima/facebook-downloader":"1.0.0",
-    "mrnima-moviedl":"1.0.0"
+    "mrnima-moviedl":"1.0.0",
     "openai": "^4.7.0"
   }
 }
