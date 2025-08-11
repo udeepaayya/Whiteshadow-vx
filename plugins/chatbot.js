@@ -1,16 +1,14 @@
-require('dotenv').config();
 const { cmd } = require('../command');
 const OpenAI = require('openai');
+require('dotenv').config();
 
-// Create OpenAI instance with API key from .env
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// In-memory user AI status
 const userSettings = {}; // { jid: { aiEnabled: true/false } }
 
-// Command: AI ON/OFF
+// AI ON/OFF Command
 cmd({
   pattern: 'whiteshadowai ?(on|off)?',
   desc: 'Turn Whiteshadow AI chatbot ON or OFF',
@@ -36,7 +34,7 @@ cmd({
   }
 });
 
-// AI Chat handler
+// AI Chat Handler
 async function whiteshadowAIChat(conn, m) {
   const userId = m.sender;
   if (!userSettings[userId]?.aiEnabled) return;
@@ -49,6 +47,7 @@ async function whiteshadowAIChat(conn, m) {
   else if (m.message.extendedTextMessage?.text) userMessage = m.message.extendedTextMessage.text.trim();
   else return;
 
+  // Group custom replies
   if (isGroup) {
     if (/කවුද ඔයා|kauwda oya/i.test(userMessage)) {
       return conn.sendMessage(chatId, { text: 'Whiteshadow' }, { quoted: m });
@@ -58,6 +57,7 @@ async function whiteshadowAIChat(conn, m) {
     }
   }
 
+  // OpenAI API Call
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -69,7 +69,6 @@ async function whiteshadowAIChat(conn, m) {
         { role: "user", content: userMessage }
       ],
     });
-
     const replyText = response.choices[0].message.content;
     await conn.sendMessage(chatId, { text: replyText }, { quoted: m });
   } catch (e) {
@@ -77,12 +76,12 @@ async function whiteshadowAIChat(conn, m) {
   }
 }
 
-// Listen for new messages
-conn.ev.on('messages.upsert', async (chatUpdate) => {
-  const m = chatUpdate.messages[0];
-  if (!m.message || m.key.fromMe) return;
-
-  if (m.message?.conversation?.startsWith('.')) return;
-
+// Message listener (Main bot passes conn here)
+cmd({
+  pattern: '.*', // matches everything
+  dontAddCommandList: true
+}, async (conn, mek, m) => {
+  // Skip messages from self or commands starting with '.'
+  if (m.key.fromMe || m.message?.conversation?.startsWith('.')) return;
   await whiteshadowAIChat(conn, m);
 });
