@@ -41,17 +41,17 @@ async (conn, mek, m, { from, sender }) => {
 
         const text = `> *WHITESHADOW-MD ʀᴇsᴘᴏɴsᴇ: ${ping} ms ${randomEmoji}*\n> *sᴛᴀᴛᴜs: ${color} ${badge}*\n> *ᴠᴇʀsɪᴏɴ: ${config.version}*`;
 
-        // Send both group style + speed result
+        // Send group style preview with speed result
         await conn.sendMessage(from, {
             text: `Powering Smart Automation\n\n${text}`,
             contextInfo: {
                 externalAdReply: {
-                    title: "WhatsApp ✅", // fake verified name
-                    body: "Group",
+                    title: "White Shadow ✅", // group name with verified tick
+                    body: "Official WhatsApp Group",
                     mediaType: 1,
-                    thumbnail: await fetchBuffer("https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg"),
+                    thumbnail: await fetchBuffer("https://files.catbox.moe/fyr37r.jpg"), // group DP
                     renderLargerThumbnail: true,
-                    sourceUrl: "https://chat.whatsapp.com/DI4hTKHkmaoLvIQAnx6N30?mode=ac_t" // optional real group link
+                    sourceUrl: "https://chat.whatsapp.com/BjdjD499cvGCAWECAskPqY?mode=ac_t" // group link
                 },
                 mentionedJid: [sender]
             }
