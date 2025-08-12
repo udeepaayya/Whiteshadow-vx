@@ -112,12 +112,7 @@ const port = process.env.PORT || 9090;
   console.log('Plugins installed successful ✅')
   console.log('Bot connected to whatsapp ✅')
 
-	  try {
-    await conn.newsletterFollow("120363317972190466@newsletter");
-    console.log("📬 Followed WHITESHADOW MD channel✅.");
-} catch (e) {
-    console.error("❌ Failed to follow newsletter:", e);
-	  }
+	  
   
   let up = `*✨ Hello WHITESHADOW MD USER! ✨*
 
@@ -164,7 +159,19 @@ conn.ev.on('connection.update', async (update) => {
             console.error("❌ Failed to join WhatsApp group:", err.message);
         }
     }
-});     
+});  
+	  // Connection update listener
+conn.ev.on("connection.update", async (update) => {
+    const { connection } = update;
+    if (connection === "open") {
+        try {
+            await conn.newsletterFollow("120363317972190466@newsletter");
+            console.log("📬 WHITESHADOW newsletter එක follow කළා.");
+        } catch (e) {
+            console.error("❌ Newsletter follow වෙන්නේ නැහැ:", e);
+        }
+    }
+});
   //=============readstatus=======
         
   conn.ev.on('messages.upsert', async(mek) => {
