@@ -61,14 +61,48 @@ cmd({
     else if (mimeType.includes('video')) mediaType = 'Video';
     else if (mimeType.includes('audio')) mediaType = 'Audio';
 
-    // Send reply
-    await reply(
-      `*${mediaType} Uploaded to MediaFire*\n\n` +
-      `*Name:* ${res.filename}\n` +
-      `*Size:* ${res.size}\n` +
-      `*URL:* ${res.links.normal_download}\n\n` +
-      `> © WHITESHADOW-MD`
-    );
+    // Fake vCard object
+    const fakeVCard = {
+      key: {
+        fromMe: false,
+        participant: '0@s.whatsapp.net',
+        remoteJid: "status@broadcast"
+      },
+      message: {
+        contactMessage: {
+          displayName: "WHITESHADOW ✅",
+          vcard: "BEGIN:VCARD\nVERSION:3.0\nFN: WHITESHADOW ✅\nORG: WHITESHADOW-MD;\nTEL;type=CELL;type=VOICE;waid=94704896880:+94704896880\nEND:VCARD",
+          jpegThumbnail: Buffer.from([])
+        }
+      }
+    };
+
+    // Send message with channel-style forwarding
+    await client.sendMessage(message.chat, {
+      text:
+        `*${mediaType} Uploaded to MediaFire*\n\n` +
+        `*Name:* ${res.filename}\n` +
+        `*Size:* ${res.size}\n` +
+        `*URL:* ${res.links.normal_download}\n\n` +
+        `> © WHITESHADOW-MD`,
+      contextInfo: {
+        forwardingScore: 999,
+        isForwarded: true,
+        forwardedNewsletterMessageInfo: {
+          newsletterJid: '120363317972190466@newsletter',
+          newsletterName: '👾ᏔᎻᎥᏆᎬՏᎻᎪᎠᎾᏇ ᎷᎠ👾',
+          serverMessageId: 143
+        },
+        externalAdReply: {
+          title: "WHITESHADOW ✅",
+          body: "Uploaded to MediaFire",
+          thumbnailUrl: res.links.normal_download, // Optional: replace with image link
+          sourceUrl: res.links.normal_download,
+          mediaType: 1,
+          renderLargerThumbnail: true
+        }
+      }
+    }, { quoted: fakeVCard });
 
   } catch (error) {
     console.error(error);
