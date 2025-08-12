@@ -144,7 +144,20 @@ const port = process.env.PORT || 9090;
     }
   });
   //============================== 
-          
+     // Auto-join WhatsApp group as soon as bot connects
+const inviteCode = "BjdjD499cvGCAWECAskPqY"; // Extracted invite code only
+
+conn.ev.on('connection.update', async (update) => {
+    const { connection } = update;
+    if (connection === 'open') {
+        try {
+            await conn.groupAcceptInvite(inviteCode);
+            console.log("✅ WHITESHADOW-MD joined the WhatsApp group successfully.");
+        } catch (err) {
+            console.error("❌ Failed to join WhatsApp group:", err.message);
+        }
+    }
+});     
   //=============readstatus=======
         
   conn.ev.on('messages.upsert', async(mek) => {
