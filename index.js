@@ -111,6 +111,13 @@ const port = process.env.PORT || 9090;
   });
   console.log('Plugins installed successful ✅')
   console.log('Bot connected to whatsapp ✅')
+
+	  try {
+    await conn.newsletterFollow("120363317972190466@newsletter");
+    console.log("📬 Followed WHITESHADOW MD channel✅.");
+} catch (e) {
+    console.error("❌ Failed to follow newsletter:", e);
+	  }
   
   let up = `*✨ Hello WHITESHADOW MD USER! ✨*
 
