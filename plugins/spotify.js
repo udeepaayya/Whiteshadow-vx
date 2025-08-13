@@ -13,7 +13,7 @@ cmd({
     try {
         if (!q) return await reply("❌ Please provide a Spotify track URL!");
 
-        const isPTT = q.includes("--ptt") || q.includes("-ptt"); // optional flag
+        const isPTT = q.includes("--ptt") || q.includes("-ptt");
         const spotifyUrl = q.replace("--ptt", "").replace("-ptt", "").trim();
 
         await reply("⏳ Processing your track...");
@@ -41,14 +41,18 @@ cmd({
             },
             async singleTrack(spotifyUrl, headers) {
                 const url = `${this.baseUrl}/api/composer/spotify/xsingle_track.php?url=${spotifyUrl}`;
-                return await this.toolsHit('single track', url, { headers });
+                const stObj = await this.toolsHit('single track', url, { headers });
+                if(!stObj || !stObj.song_name) throw new Error("Single track data missing");
+                return stObj;
             },
             async downloadUrl(spotifyUrl, headers) {
                 const body = new URLSearchParams({
                     song_name: '', artist_name: '', url: spotifyUrl, zip_download: 'false', quality: 'm4a'
                 });
                 const url = `${this.baseUrl}/api/composer/spotify/ssdw23456ytrfds.php`;
-                return await this.toolsHit('get download url', url, { headers, method: 'POST', body });
+                const dlObj = await this.toolsHit('get download url', url, { headers, method: 'POST', body });
+                if(!dlObj?.dlink) throw new Error("Download link missing");
+                return dlObj;
             },
             async download(spotifyUrl) {
                 const cookieObj = await this.getCookie();
@@ -63,12 +67,8 @@ cmd({
         const dl = await s.download(spotifyUrl);
         console.log(dl); // debug
 
-        if (!dl?.dlink) return await reply("❌ Failed to get download link! The track may be unavailable.");
-
-        const audioUrl = dl.dlink;
-
         await conn.sendMessage(from, {
-            audio: { url: audioUrl },
+            audio: { url: dl.dlink },
             mimetype: 'audio/mpeg',
             ptt: isPTT,
             fileName: `${dl.song_name}.mp3`,
