@@ -17,7 +17,7 @@
   <img src="https://komarev.com/ghpvc/?username=Whiteshadow-MD&label=VISITORS&style=flat-square&color=0002FF" />
 </p>
 
-> **Current Bot Version `V1.0`**
+> **Current Bot Version `V2.0`**
 
 ---
 
@@ -39,12 +39,16 @@
 ## 🛰️ Deployment Steps
 
 > 1. ⭐ Star & 🍴 Fork the repo  
-> 2. Edit `.env` → add your creds  
+> 2. Edit `config.js` → add your creds  
 > 3. Deploy with your favourite provider 👇
 
 ### 🔘 Deploy Button
 
 [![Deploy on Render](https://img.shields.io/badge/Render-000000?style=for-the-badge&logo=render&logoColor=white&labelColor=000000&color=00ffaa)](https://dashboard.render.com/web/new?fromGitRepo=true&repo=https://github.com/cnw-db/Whiteshadow-vx.git)
+
+### 🔘 Deploy Buttons
+
+[![Deploy on Heroku](https://img.shields.io/badge/Deploy%20on-Heroku-430098?style=for-the-badge&logo=heroku&logoColor=white)](https://heroku.com/deploy?template=https://github.com/cnw-db/Whiteshadow-vx.git)
 
 ---
 
@@ -94,6 +98,7 @@ jobs:
 
       - name: Start application
         run: npm start
+```
 
 </details>
 ---
