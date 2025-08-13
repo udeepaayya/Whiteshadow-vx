@@ -3,15 +3,18 @@ const fetch = require('node-fetch');
 
 cmd({
     pattern: "spotifydl",
-    alias: ["spotify"],
-    react: "🎵",
+    alias: ["spotify", "spt"],
+    react: "🎧",
     desc: "Download audio from Spotify track URL",
     category: "download",
-    use: ".spotifydl <Spotify URL>",
+    use: ".spotifydl <Spotify URL> [--ptt]",
     filename: __filename
 }, async (conn, m, mek, { from, q, reply }) => {
     try {
         if (!q) return await reply("❌ Please provide a Spotify track URL!");
+
+        const isPTT = q.includes("--ptt") || q.includes("-ptt"); // optional flag
+        const spotifyUrl = q.replace("--ptt", "").replace("-ptt", "").trim();
 
         await reply("⏳ Processing your track...");
 
@@ -57,11 +60,12 @@ cmd({
         }
         // ====================================
 
-        const dl = await s.download(q);
-        const audioUrl = dl.dlink;
+        const dl = await s.download(spotifyUrl);
+        console.log(dl); // debug
 
-        // Decide if PTT (voice) or normal audio
-        const isPTT = q.includes("--ptt") || q.includes("-ptt"); // optional flag in command
+        if (!dl?.dlink) return await reply("❌ Failed to get download link! The track may be unavailable.");
+
+        const audioUrl = dl.dlink;
 
         await conn.sendMessage(from, {
             audio: { url: audioUrl },
@@ -78,7 +82,7 @@ cmd({
                     previewType: 0,
                     renderLargerThumbnail: true,
                     thumbnailUrl: dl.img,
-                    sourceUrl: q
+                    sourceUrl: spotifyUrl
                 }
             }
         }, { quoted: mek });
