@@ -89,4 +89,4 @@ cmd({
         console.error(error);
         await reply(`❌ Error: ${error.message}`);
     }
-})
+});
