@@ -1,3 +1,4 @@
+const config = require('../config'); // <-- add this line at the top
 const { cmd } = require('../command');
 const DY_SCRAP = require('@dark-yasiya/scrap');
 const dy_scrap = new DY_SCRAP();
