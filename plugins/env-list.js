@@ -1,10 +1,9 @@
 const config = require('../config');
-const { cmd, commands } = require('../command');
+const { cmd } = require('../command');
 const { runtime } = require('../lib/functions');
 const axios = require('axios');
 
 function isEnabled(value) {
-    // Function to check if a value represents a "true" boolean state
     return value && value.toString().toLowerCase() === "true";
 }
 
@@ -16,14 +15,11 @@ cmd({
     react: "⚙️",
     filename: __filename
 }, 
-async (conn, mek, m, { from, quoted, reply, isCreator }) => {
+async (conn, mek, m, { from, reply, isCreator }) => {
     try {
-        // Owner check
         if (!isCreator) {
             return reply("🚫 *Owner Only Command!* You're not authorized to view bot configurations.");
         }
-
-        const isEnabled = (value) => value && value.toString().toLowerCase() === "true";
 
         let envSettings = `
 ╭───『 *${config.BOT_NAME} CONFIG* 』───❏
@@ -76,6 +72,22 @@ async (conn, mek, m, { from, quoted, reply, isCreator }) => {
 ╰───『 *${config.DESCRIPTION}* 』───❏
 `;
 
+        // fake vCard
+        const fakeVCard = {
+            key: {
+                fromMe: false,
+                participant: "0@s.whatsapp.net",
+                remoteJid: "status@broadcast"
+            },
+            message: {
+                contactMessage: {
+                    displayName: "Whiteshadow Ai",
+                    vcard: `BEGIN:VCARD\nVERSION:3.0\nN:;;;\nFN:Whiteshadow Ai\nitem1.TEL;waid=94704896880:+94 70 489 6880\nitem1.X-ABLabel:Owner\nEND:VCARD`
+                }
+            }
+        };
+
+        // send ENV with fake vCard quoted
         await conn.sendMessage(
             from,
             {
@@ -87,18 +99,18 @@ async (conn, mek, m, { from, quoted, reply, isCreator }) => {
                     isForwarded: true
                 }
             },
-            { quoted: mek }
+            { quoted: fakeVCard }
         );
 
-        // Optional audio message
+        // extra audio
         await conn.sendMessage(
             from,
             {
-                audio: { url: 'https://github.com/JawadYT36/KHAN-DATA/raw/refs/heads/main/autovoice/menunew.m4a' },
+                audio: { url: 'https://files.catbox.moe/ypnd2c.mp3' },
                 mimetype: 'audio/mp4',
                 ptt: true
             },
-            { quoted: mek }
+            { quoted: fakeVCard }
         );
 
     } catch (error) {
