@@ -80,7 +80,7 @@ Use *.update* to update.`;
         forwardingScore: 999,
         isForwarded: true,
         forwardedNewsletterMessageInfo: {
-          newsletterJid: '120363317972190466@newsletter',
+          newsletterJid: '120363397446799567@newsletter',
           newsletterName: 'ᏔᎻᎥᏆᎬՏᎻᎪᎠᎾᏇ-ᎷᎠ ',
           serverMessageId: 143
         }
