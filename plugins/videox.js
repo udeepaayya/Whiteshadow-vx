@@ -1,64 +1,70 @@
 import { cmd } from '../command.js';
 import axios from 'axios';
 
-// Temp store for chat pending video selection
-const pendingVideos = {};
-
 cmd({
-    pattern: "videox",
-    desc: "Download YouTube video with selectable quality",
-    category: "media",
-}, async (conn, mek, m, { reply }) => {
+    pattern: 'videox',
+    desc: 'Download any video with resolution options',
+    category: 'downloader',
+    react: '🎬',
+    filename: __filename
+}, async (conn, mek, m, { text, reply }) => {
     try {
-        const url = m.text.split(" ")[1];
-        if (!url) return reply("❌ Please provide a YouTube link!");
+        if (!text) return reply('YouTube link ekak danna. Example: videox <link>');
 
-        // Get video info (API call)
-        const apiRes = await axios.get(`https://api.agatz.xyz/api/ytinfo?url=${encodeURIComponent(url)}`);
-        const data = apiRes.data;
+        // Fetch data from zenzxz API
+        const apiURL = `https://api.zenzxz.my.id/downloader/aio?url=${encodeURIComponent(text)}`;
+        const { data } = await axios.get(apiURL);
 
-        // Save pending chat info
-        pendingVideos[m.chat] = {
-            videoId: data.id,
-            qualities: data.qualities // array like ['360p','480p','720p','1080p']
-        };
+        if (!data || !data.result) return reply('Video info ganna bari una.');
 
-        // Build caption
-        let caption = `🎬 *${data.title}*\n\n${data.description}\n\nSelect quality:\n`;
-        data.qualities.forEach((q, i) => {
-            caption += `${i+1}. ${q}\n`;
+        const video = data.result;
+
+        // Create caption with thumbnail, title, description
+        const caption = `
+🎬 *${video.title}*
+📄 ${video.description || 'No description'}
+🔗 Choose resolution:
+1️⃣ 1080p
+2️⃣ 720p
+3️⃣ 480p
+4️⃣ 360p
+
+Reply number ekak danna video download karanna.
+Powered by WHITESHADOW MD 👑️
+        `.trim();
+
+        // Send thumbnail with caption
+        await conn.sendFile(m.from, video.thumbnail, 'thumbnail.jpg', caption, m);
+
+        // Set up reply listener for resolution choice
+        conn.onReply(m.key.id, async (res) => {
+            const choice = res.text.trim();
+
+            let url;
+            switch (choice) {
+                case '1':
+                    url = video.video['1080p'];
+                    break;
+                case '2':
+                    url = video.video['720p'];
+                    break;
+                case '3':
+                    url = video.video['480p'];
+                    break;
+                case '4':
+                    url = video.video['360p'];
+                    break;
+                default:
+                    return reply('Invalid choice! 1-4 danna.');
+            }
+
+            if (!url) return reply('Selected resolution unavailable.');
+
+            await conn.sendFile(m.from, url, `${video.title}.mp4`, `Downloaded ${choice}p video. Powered by WHITESHADOW MD 👑️`, res);
         });
-        caption += `\nPowered by WHITESHADOW MD 👑️`;
 
-        // Send thumbnail + caption
-        await conn.sendFile(m.chat, data.thumbnail, "thumb.jpg", caption, m);
-    } catch (e) {
-        console.log(e);
-        reply("❌ Failed to fetch video info.");
+    } catch (err) {
+        console.log(err);
+        reply('Video download karanna error ekak ayi.');
     }
-});
-
-// Listen for replies for quality selection
-cmd({
-    pattern: ".*",
-    desc: "Catch quality selection",
-    category: "media",
-}, async (conn, mek, m, { reply }) => {
-    const chatPending = pendingVideos[m.chat];
-    if (!chatPending) return; // no pending video
-
-    const choice = parseInt(m.text);
-    if (!choice || choice < 1 || choice > chatPending.qualities.length) return;
-
-    const selectedQuality = chatPending.qualities[choice-1];
-
-    // Download URL API (example)
-    const videoRes = await axios.get(`https://api.agatz.xyz/api/ytmp4?url=https://youtu.be/${chatPending.videoId}&quality=${selectedQuality}`);
-    const videoUrl = videoRes.data.url;
-
-    // Send video with caption
-    await conn.sendFile(m.chat, videoUrl, `${chatPending.videoId}.mp4`, `🎬 Video in ${selectedQuality}\nPowered by WHITESHADOW MD 👑️`, m);
-
-    // Remove pending
-    delete pendingVideos[m.chat];
 });
