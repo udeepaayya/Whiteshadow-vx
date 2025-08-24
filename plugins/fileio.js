@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
+import QRCode from 'qrcode';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -18,9 +19,9 @@ function formatBytes(bytes) {
 }
 
 // Upload buffer to file.io
-async function uploadToFileIO(buffer) {
+async function uploadToFileIO(buffer, originalName = 'file') {
   const form = new FormData();
-  form.append('file', new Blob([buffer]), `${Date.now()}.bin`);
+  form.append('file', buffer, { filename: originalName });
 
   const res = await fetch('https://file.io', { method: 'POST', body: form });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -29,34 +30,35 @@ async function uploadToFileIO(buffer) {
   if (!data.success) throw new Error('❌ Upload failed');
 
   const downloadUrl = data.link;
-  const qr = downloadUrl + '.qr'; // optionally generate QR externally
-  return { downloadUrl, qr, web: downloadUrl, mime: 'application/octet-stream' };
+  const qr = await QRCode.toDataURL(downloadUrl);
+  return { downloadUrl, qr, web: downloadUrl };
 }
 
 // Command
 cmd({
   pattern: 'upfileio',
   alias: ['upio'],
-  desc: 'Upload one or more files to file.io',
+  desc: 'Upload files to file.io and get download links with QR',
   category: 'tools',
   react: '☁️',
   filename: __filename
 }, async (conn, mek, m, { reply }) => {
   try {
-    const files = m.quoted ? (Array.isArray(m.quoted.msg) ? m.quoted.msg : [m.quoted]) : [m];
+    const files = m.quoted ? [m.quoted] : [m];
     if (!files || files.length === 0) return reply('📎 Reply/Send file(s) to upload.');
 
-    await conn.sendMessage(m.chat, { react: { text: "⏫", key: m.key } }); // uploading react
+    await conn.sendMessage(m.chat, { react: { text: "⏫", key: m.key } });
 
     let results = [];
 
     for (let q of files) {
       try {
         const mime = (q.msg || q).mimetype || 'application/octet-stream';
+        const ext = mime.split('/')[1] || 'bin';
         const buffer = await q.download?.();
         if (!buffer) throw new Error('❌ Could not download file.');
 
-        const result = await uploadToFileIO(buffer);
+        const result = await uploadToFileIO(buffer, `${Date.now()}.${ext}`);
 
         results.push({
           size: formatBytes(buffer.length),
@@ -70,7 +72,7 @@ cmd({
       }
     }
 
-    // Build final message
+    // Build WHITESHADOW-MD style message
     let text = '┏━━━〔 *WHITESHADOW-MD* 〕━━━┓\n';
     results.forEach((r, i) => {
       if (r.error) text += `┃ ❌ File ${i + 1}: ${r.error}\n`;
@@ -79,12 +81,14 @@ cmd({
     });
     text += '┗━━━━━━━━━━━━━━━━━━━━━━━┛';
 
-    await conn.sendMessage(m.chat, { react: { text: "⚡", key: m.key } }); // success react
+    await conn.sendMessage(m.chat, { react: { text: "⚡", key: m.key } });
 
-    // Send first QR as preview (optional)
-    const firstQR = results.find(r => !r.error)?.qr;
-    if (firstQR) await conn.sendMessage(m.chat, { image: { url: firstQR }, caption: text }, { quoted: m });
-    else await reply(text);
+    // Send all QR images as separate messages
+    for (let r of results) {
+      if (!r.error && r.qr) {
+        await conn.sendMessage(m.chat, { image: { url: r.qr }, caption: `QR Code for ${r.downloadUrl}` }, { quoted: m });
+      }
+    }
 
   } catch (e) {
     await reply('❌ Error: ' + (e?.message || e));
