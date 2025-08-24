@@ -1,9 +1,15 @@
 import { cmd } from '../command.js';
 import axios from 'axios';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// Fix for __filename & __dirname in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 cmd({
     pattern: 'videox',
-    desc: 'Download any video with resolution options',
+    desc: 'Download YouTube video with resolution options',
     category: 'downloader',
     react: '🎬',
     filename: __filename
@@ -11,7 +17,7 @@ cmd({
     try {
         if (!text) return reply('YouTube link ekak danna. Example: videox <link>');
 
-        // Fetch data from zenzxz API
+        // Fetch video info from zenzxz API
         const apiURL = `https://api.zenzxz.my.id/downloader/aio?url=${encodeURIComponent(text)}`;
         const { data } = await axios.get(apiURL);
 
@@ -19,7 +25,7 @@ cmd({
 
         const video = data.result;
 
-        // Create caption with thumbnail, title, description
+        // Thumbnail + caption
         const caption = `
 🎬 *${video.title}*
 📄 ${video.description || 'No description'}
@@ -33,14 +39,13 @@ Reply number ekak danna video download karanna.
 Powered by WHITESHADOW MD 👑️
         `.trim();
 
-        // Send thumbnail with caption
         await conn.sendFile(m.from, video.thumbnail, 'thumbnail.jpg', caption, m);
 
-        // Set up reply listener for resolution choice
+        // Reply listener for resolution selection
         conn.onReply(m.key.id, async (res) => {
             const choice = res.text.trim();
-
             let url;
+
             switch (choice) {
                 case '1':
                     url = video.video['1080p'];
