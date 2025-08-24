@@ -5,7 +5,7 @@ import axios from 'axios';
 const pendingVideos = {};
 
 cmd({
-    pattern: "video",
+    pattern: "videox",
     desc: "Download YouTube video with selectable quality",
     category: "media",
 }, async (conn, mek, m, { reply }) => {
