@@ -1,8 +1,23 @@
 // plugins/updf.js
 import { cmd } from '../command.js';
 import fileType from "file-type";
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// ESM fix for __filename & __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const origin = 'https://uploadf.com';
+
+// Convert bytes to human-readable format
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
 
 async function uploadToUploadF(buffer) {
   const info = (await fileType.fromBuffer(buffer)) || { ext: 'bin', mime: 'application/octet-stream' };
@@ -45,12 +60,12 @@ async (conn, mek, m, { reply }) => {
 
     const result = await uploadToUploadF(buffer);
 
-    // ⚡ Branded caption
+    // ⚡ Branded caption with human-readable size
     const caption = `
 ┏━━━〔 *WHITESHADOW-MD* 〕━━━┓
 ┃ ✅ *File uploaded successfully*
 ┃
-┃ 📦 *Size* : ${buffer.length} bytes
+┃ 📦 *Size* : ${formatBytes(buffer.length)}
 ┃ 📂 *Type* : ${mime}
 ┃ 🌐 *Web*  : ${result.web}
 ┃ ⬇️ *Download* : ${result.downloadUrl}
