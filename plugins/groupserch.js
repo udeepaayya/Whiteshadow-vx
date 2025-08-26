@@ -1,8 +1,8 @@
 // plugins/groupsearch.js
-// Safe WhatsApp Group Search with Category Filter (filters NSFW and under-18 content)
-// Author: WhiteShadow-MD
-// Command: .groupsearch <query> [--limit N] [--cat category]
-// Example: .groupsearch car --limit 10 --cat Sports
+// WhatsApp Group Search Plugin with Safe/Unsafe Toggle
+// Author: ChatGPT (for WhiteShadow-MD)
+// Command: .groupsearch <query> [--limit N] [--cat category] [--unsafe]
+// Example: .groupsearch car --limit 10 --cat Sports --unsafe
 
 const axios = require("axios");
 const { cmd } = require("../command");
@@ -52,8 +52,8 @@ function fmtItem(it, idx) {
 cmd({
   pattern: "groupsearch",
   alias: ["grsearch", "cari"],
-  use: ".groupsearch <query> [--limit N] [--cat category]",
-  desc: "Search safe WhatsApp groups (filters NSFW & under-18)",
+  use: ".groupsearch <query> [--limit N] [--cat category] [--unsafe]",
+  desc: "Search WhatsApp groups (Safe by default, add --unsafe to allow 18+)",
   category: "search",
   react: "🔎",
   filename: __filename
@@ -61,12 +61,13 @@ cmd({
 async (conn, mek, m, { args, reply }) => {
   try {
     if (!args.length) {
-      return reply("*Usage:* .groupsearch <query> [--limit N] [--cat category]");
+      return reply("*Usage:* .groupsearch <query> [--limit N] [--cat category] [--unsafe]");
     }
 
     // default values
     let limit = 15;
     let categoryFilter = null;
+    let allowUnsafe = false;
 
     // parse flags
     args = args.filter((a, i) => {
@@ -76,6 +77,10 @@ async (conn, mek, m, { args, reply }) => {
       }
       if (a === "--cat" && args[i+1]) {
         categoryFilter = args[i+1].toLowerCase();
+        return false;
+      }
+      if (a === "--unsafe") {
+        allowUnsafe = true;
         return false;
       }
       return true;
@@ -89,8 +94,11 @@ async (conn, mek, m, { args, reply }) => {
       return reply("❌ Invalid API response.");
     }
 
-    // filter safe
-    let results = data.data.filter(it => !isUnsafe(it));
+    // filter safe if not unsafe mode
+    let results = data.data;
+    if (!allowUnsafe) {
+      results = results.filter(it => !isUnsafe(it));
+    }
 
     // category filter
     if (categoryFilter) {
@@ -106,12 +114,12 @@ async (conn, mek, m, { args, reply }) => {
     });
 
     if (!results.length) {
-      return reply(`⚠️ No *safe* results for “${query}”${categoryFilter ? ` in category ${categoryFilter}` : ""}.`);
+      return reply(`⚠️ No ${allowUnsafe ? "results" : "*safe* results"} for “${query}”${categoryFilter ? ` in category ${categoryFilter}` : ""}.`);
     }
 
     results = results.slice(0, limit);
 
-    let text = `*WhatsApp Group Search* — “${query}”\nSafe results: ${results.length}\n\n`;
+    let text = `*WhatsApp Group Search* — “${query}”\nMode: ${allowUnsafe ? "🔞 Unsafe (18+ allowed)" : "✅ Safe"}\nResults: ${results.length}\n\n`;
     results.forEach((it, i) => {
       text += fmtItem(it, i + 1) + "\n\n";
     });
