@@ -1,12 +1,17 @@
 /*
 * Plugin : Lyrics Search (WHITESHADOW-MD)
 * Source : lrclib.net
-* Author : ZenzzXD | Modified by WhiteShadow😁
-* cantact: 94704896880 (whatsapp)
+* Author : ZenzzXD | Modified by WhiteShadow
 */
 
 import axios from 'axios'
 import { cmd } from '../command.js'
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
+
+// ✅ ESM safe __filename & __dirname
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 async function lyrics(title) {
   try {
@@ -45,7 +50,7 @@ cmd({
   alias: ["lyrics", "songlyrics"],
   desc: "Find song lyrics",
   category: "tools",
-  filename: __filename
+  filename: __filename // ✅ Safe now
 }, async (m, conn, args) => {
   try {
     if (!args.length) return m.reply('❌ Mana judul nya bang?\n👉 contoh: .lirik nina feast')
@@ -83,6 +88,9 @@ END:VCARD`,
       }
     }
 
+    // Ghost watermark style
+    const ghostWatermark = "Ｐｏｗｅｒｅｄ  ｂｙ  ＷｈｉｔｅＳｈａｄｏｗ－ＭＤ"
+
     let txt = `
 🎵 *Lyrics Finder* 🎵
 ─────────────────────
@@ -97,7 +105,7 @@ ${lyr}
 
 
 ───────•••───────
-_Powered by WhiteShadow-MD_
+${ghostWatermark}
 `
 
     await conn.sendMessage(m.chat, { text: txt }, { quoted: contactCard })
