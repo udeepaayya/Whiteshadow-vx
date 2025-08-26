@@ -12,7 +12,7 @@ function extractUrl(text = '') {
 
 cmd({
   pattern: 'ytmp4x',
-  alias: ['ytmp4','ytshort','ytshorts'],
+  alias: ['yt','ytshort','ytshorts'],
   desc: 'Download YouTube video (MP4) using Zenzx API with a clean preview card.',
   category: 'download',
   react: '📥',
@@ -79,7 +79,7 @@ async (conn, mek, m, { from, args, reply, quoted }) => {
         video: { url: dl },
         fileName: `${title.replace(/[\\/:*?"<>|]/g, '')}.mp4`,
         mimetype: 'video/mp4',
-        caption: `✅ Downloaded: *${title}*\n📥 Source: Zenzx API`
+        caption: `✅ Downloaded: *${title}*\n📥 Powered by whiteshadow-MD`
       }, { quoted: m });
     } catch (err) {
       // 5) fallback: just give the link
