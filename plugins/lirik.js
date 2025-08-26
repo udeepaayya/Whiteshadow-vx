@@ -1,0 +1,108 @@
+/*
+* Plugin : Lyrics Search (WHITESHADOW-MD)
+* Source : lrclib.net
+* Author : ZenzzXD | Modified by WhiteShadow😁
+* cantact: 94704896880 (whatsapp)
+*/
+
+import axios from 'axios'
+import { cmd } from '../command.js'
+
+async function lyrics(title) {
+  try {
+    if (!title) throw new Error('Title is required')
+
+    const { data } = await axios.get(
+      `https://lrclib.net/api/search?q=${encodeURIComponent(title)}`, {
+        headers: {
+          referer: `https://lrclib.net/search/${encodeURIComponent(title)}`,
+          'user-agent': 'Mozilla/5.0'
+        }
+      }
+    )
+
+    if (!data || !data[0]) throw new Error('No lyrics found')
+
+    let song = data[0]
+    let track = song.trackName || 'Unknown Track'
+    let artist = song.artistName || 'Unknown Artist'
+    let album = song.albumName || 'Unknown Album'
+    let duration = song.duration ? `${Math.floor(song.duration / 60)}:${(song.duration % 60).toString().padStart(2, '0')}` : 'Unknown Duration'
+
+    let lyr = song.plainLyrics || song.syncedLyrics
+    if (!lyr) lyr = 'No lyrics available'
+
+    lyr = lyr.replace(/\[.*?\]/g, '').trim()
+
+    return { track, artist, album, duration, lyr }
+  } catch (error) {
+    throw new Error(error.message)
+  }
+}
+
+cmd({
+  pattern: "lirik",
+  alias: ["lyrics", "songlyrics"],
+  desc: "Find song lyrics",
+  category: "tools",
+  filename: __filename
+}, async (m, conn, args) => {
+  try {
+    if (!args.length) return m.reply('❌ Mana judul nya bang?\n👉 contoh: .lirik nina feast')
+
+    const title = args.join(' ')
+    const { track, artist, album, duration, lyr } = await lyrics(title)
+
+    // Fake vCard build
+    let thumb = Buffer.from([])
+    try {
+      const ppUrl = await conn.profilePictureUrl("213797069700@s.whatsapp.net", "image")
+      const ppResp = await axios.get(ppUrl, { responseType: "arraybuffer" })
+      thumb = Buffer.from(ppResp.data, "binary")
+    } catch (err) {
+      console.log("❗ Couldn't fetch profile picture:", err.message)
+    }
+
+    const contactCard = {
+      key: {
+        fromMe: false,
+        participant: '0@s.whatsapp.net',
+        remoteJid: "status@broadcast"
+      },
+      message: {
+        contactMessage: {
+          displayName: "WHITESHADOW-MD ✅",
+          vcard: `BEGIN:VCARD
+VERSION:3.0
+FN:WHITESHADOW-MD ✅
+ORG:WHITESHADOW-MD TEAM
+TEL;type=CELL;type=VOICE;waid=213797069700:+213 797 06 97 00
+END:VCARD`,
+          jpegThumbnail: thumb
+        }
+      }
+    }
+
+    let txt = `
+🎵 *Lyrics Finder* 🎵
+─────────────────────
+🎼 *Track* : ${track}
+🎤 *Artist* : ${artist}
+💽 *Album* : ${album}
+⏱️ *Duration* : ${duration}
+
+📑 *Lyrics* :
+─────────────────────
+${lyr}
+
+
+───────•••───────
+_Powered by WhiteShadow-MD_
+`
+
+    await conn.sendMessage(m.chat, { text: txt }, { quoted: contactCard })
+
+  } catch (err) {
+    m.reply(`❌ Error: ${err.message}`)
+  }
+})
