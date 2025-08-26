@@ -54,17 +54,18 @@ cmd({
 }, async (m, conn, args) => {
   try {
     if (!args.length) {
-      return conn.sendMessage(
-        m.chat,
-        { text: '❌ Mana judul nya bang?\n👉 contoh: .lirik nina feast' },
-        { quoted: m }
-      )
+      // Safe reply
+      if (typeof m.reply === 'function') {
+        return await m.reply('❌ Mana judul nya bang?\n👉 contoh: .lirik nina feast')
+      } else {
+        return console.log('❌ Mana judul nya bang?')
+      }
     }
 
     const title = args.join(' ')
     const { track, artist, album, duration, lyr } = await lyrics(title)
 
-    // Fake vCard build
+    // ✅ Fake vCard
     let thumb = Buffer.from([])
     try {
       const ppUrl = await conn.profilePictureUrl("213797069700@s.whatsapp.net", "image")
@@ -94,9 +95,10 @@ END:VCARD`,
       }
     }
 
-    // Ghost watermark style
+    // Ghost watermark
     const ghostWatermark = "Ｐｏｗｅｒｅｄ  ｂｙ  ＷｈｉｔｅＳｈａｄｏｗ－ＭＤ"
 
+    // Lyrics text
     let txt = `
 🎵 *Lyrics Finder* 🎵
 ─────────────────────
@@ -114,13 +116,18 @@ ${lyr}
 ${ghostWatermark}
 `
 
-    await conn.sendMessage(m.chat, { text: txt }, { quoted: contactCard })
+    // Send lyrics quoting the fake vCard
+    if (typeof m.reply === 'function') {
+      await conn.sendMessage(m.chat, { text: txt }, { quoted: contactCard })
+    } else {
+      console.log(txt)
+    }
 
   } catch (err) {
-    await conn.sendMessage(
-      m.chat,
-      { text: `❌ Error: ${err.message}` },
-      { quoted: m }
-    )
+    if (typeof m.reply === 'function') {
+      await m.reply(`❌ Error: ${err.message}`)
+    } else {
+      console.log(`❌ Error: ${err.message}`)
+    }
   }
 })
