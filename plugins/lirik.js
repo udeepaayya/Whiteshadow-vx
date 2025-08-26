@@ -53,7 +53,13 @@ cmd({
   filename: __filename // ✅ Safe now
 }, async (m, conn, args) => {
   try {
-    if (!args.length) return m.reply('❌ Mana judul nya bang?\n👉 contoh: .lirik nina feast')
+    if (!args.length) {
+      return conn.sendMessage(
+        m.chat,
+        { text: '❌ Mana judul nya bang?\n👉 contoh: .lirik nina feast' },
+        { quoted: m }
+      )
+    }
 
     const title = args.join(' ')
     const { track, artist, album, duration, lyr } = await lyrics(title)
@@ -111,6 +117,10 @@ ${ghostWatermark}
     await conn.sendMessage(m.chat, { text: txt }, { quoted: contactCard })
 
   } catch (err) {
-    m.reply(`❌ Error: ${err.message}`)
+    await conn.sendMessage(
+      m.chat,
+      { text: `❌ Error: ${err.message}` },
+      { quoted: m }
+    )
   }
 })
