@@ -1,89 +1,86 @@
-const { cmd, commands } = require('../command');
+const { cmd } = require('../command');
 const axios = require('axios');
 
+// ===============================
+// Pair 1 
+// ===============================
 cmd({
     pattern: "pair",
     alias: ["getpair", "clonebot"],
     react: "✅",
     desc: "Get pairing code for WHITESHADOW-MD bot",
     category: "download",
-    use: ".pair +94704896XXX",
+    use: ".pair +947XXXXXXXX",
     filename: __filename
-}, async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply }) => {
+}, async (conn, mek, m, { q, senderNumber, reply }) => {
     try {
-        // Extract phone number from command
         const phoneNumber = q ? q.trim() : senderNumber;
-        
-        // Validate phone number format
+
         if (!phoneNumber || !phoneNumber.match(/^\+?\d{10,15}$/)) {
-            return await reply("❌ Please provide a valid phone number with country code\nExample: .pair +947XXXXXXX");
+            return await reply("❌ Please provide a valid phone number with country code\nExample: .pair +94XXXXXXXXX");
         }
 
-        // Make API request to get pairing code
-        const response = await axios.get(`https://chamod-pair-24bcef6fdda7.herokuapp.com/pair?phone=${encodeURIComponent(phoneNumber)}`);
-        
-        if (!response.data || !response.data.code) {
-            return await reply("❌ Failed to retrieve pairing code. Please try again later.");
+        // Remove + sign for API
+        const cleanNumber = phoneNumber.replace(/\D/g, "");
+
+        // Call API endpoint
+        const res = await axios.get(`https://chamod-pair-24bcef6fdda7.herokuapp.com/code?number=${cleanNumber}`);
+        const code = res.data?.code;
+
+        if (!code) {
+            return await reply("❌ Could not retrieve BILAL-MD pairing code.");
         }
 
-        const pairingCode = response.data.code;
         const doneMessage = "> *WHITESHADOW-MD PAIRING COMPLETED*";
+        await reply(`${doneMessage}\n\n*Your pairing code is:* ${code}`);
 
-        // Send initial message with formatting
-        await reply(`${doneMessage}\n\n*Your pairing code is:* ${pairingCode}`);
-
-        // Add 2 second delay
         await new Promise(resolve => setTimeout(resolve, 2000));
+        await reply(`${code}`);
 
-        // Send clean code message
-        await reply(`${pairingCode}`);
-
-    } catch (error) {
-        console.error("Pair command error:", error);
-        await reply("❌ An error occurred while getting pairing code. Please try again later.");
+    } catch (err) {
+        console.error("Pair1 command error:", err);
+        await reply("❌ Error while getting WHITESHADOW-MD pairing code.");
     }
 });
 
-
+// ===============================
+// Pair 2 (WHITESHADOW-MD)
+// ===============================
 cmd({
     pattern: "pair2",
     alias: ["getpair2", "clonebot2"],
     react: "✅",
     desc: "Get pairing code for WHITESHADOW-MD bot",
     category: "download",
-    use: ".pair +947XXXXXXXX",
+    use: ".pair2 +947XXXXXXXX",
     filename: __filename
-}, async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply }) => {
+}, async (conn, mek, m, { q, senderNumber, reply }) => {
     try {
-        // Extract phone number from command
         const phoneNumber = q ? q.trim() : senderNumber;
-        
-        // Validate phone number format
+
         if (!phoneNumber || !phoneNumber.match(/^\+?\d{10,15}$/)) {
-            return await reply("❌ Please provide a valid phone number with country code\nExample: .pair +94XXXXXXXXX");
+            return await reply("❌ Please provide a valid phone number with country code\nExample: .pair2 +94XXXXXXXXX");
         }
 
-        // Make API request to get pairing code
-        const response = await axios.get(`https://whiteshadow-x-pair.onrender.com/pair?phone=${encodeURIComponent(phoneNumber)}`);
-        
-        if (!response.data || !response.data.code) {
-            return await reply("❌ Failed to retrieve pairing code. Please try again later.");
+        // Remove + sign for API
+        const cleanNumber = phoneNumber.replace(/\D/g, "");
+
+        // Call API endpoint
+        const res = await axios.get(`https://chamod-pair-24bcef6fdda7.herokuapp.com/code?number=${cleanNumber}`);
+        const code = res.data?.code;
+
+        if (!code) {
+            return await reply("❌ Could not retrieve WHITESHADOW-MD pairing code.");
         }
 
-        const pairingCode = response.data.code;
         const doneMessage = "> *WHITESHADOW-MD PAIRING COMPLETED*";
+        await reply(`${doneMessage}\n\n*Your pairing code is:* ${code}`);
 
-        // Send initial message with formatting
-        await reply(`${doneMessage}\n\n*Your pairing code is:* ${pairingCode}`);
-
-        // Add 2 second delay
         await new Promise(resolve => setTimeout(resolve, 2000));
+        await reply(`${code}`);
 
-        // Send clean code message
-        await reply(`${pairingCode}`);
-
-    } catch (error) {
-        console.error("Pair command error:", error);
-        await reply("❌ An error occurred while getting pairing code. Please try again later.");
+    } catch (err) {
+        console.error("Pair2 command error:", err);
+        await reply("❌ Error while getting WHITESHADOW-MD pairing code.");
     }
 });
