@@ -63,7 +63,7 @@ cmd({
   pattern: "song",
   alias: ["play", "mp3"],
   react: "🎶",
-  desc: "Download YouTube song (Audio)",
+  desc: "Download YouTube song (Audio) via izumiii API",
   category: "download",
   use: ".song <query>",
   filename: __filename
@@ -75,33 +75,42 @@ cmd({
     const res = await fetch(apiUrl);
     const data = await res.json();
 
-    if (!data.status || !data.result?.downloads) {
-      return reply("❌ Song not found or API error.");
+    if (!data?.status || !data?.result?.downloads) {
+      return reply("❌ Song not found or API error. Try again later.");
     }
 
-    const song = data.result.metadata;
+    const meta = data.result.metadata;
     const downloadUrl = data.result.downloads;
+
+    const inviteExpiration = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 7 days
+    let jpegThumbnail;
+
+    try {
+      const thRes = await fetch(meta.thumbnail || meta.image);
+      const arr = await thRes.arrayBuffer();
+      jpegThumbnail = Buffer.from(arr);
+    } catch {
+      // ignore thumbnail errors
+    }
 
     await conn.sendMessage(from, {
       audio: { url: downloadUrl },
       mimetype: "audio/mpeg",
-      fileName: `${song.title}.mp3`,
+      fileName: `${meta.title.replace(/[\\/:*?"<>|]/g, "").slice(0, 80)}.mp3`,
       contextInfo: {
-        externalAdReply: {
-          title: song.title.length > 25 ? song.title.substring(0, 22) + "..." : song.title,
-          body: `🎤 ${song.author?.name || "Unknown"} • ⏱ ${song.timestamp}`,
-          thumbnailUrl: song.thumbnail,
-          sourceUrl: song.url,
-          mediaUrl: song.url,
-          mediaType: 1,
-          showAdAttribution: true,
-          renderLargerThumbnail: true
+        groupInviteMessage: {
+          groupJid: "120363422749265523@g.us", // ✅ Whiteshadow MD Support group
+          inviteCode: "BjdjD499cvGCAWECAskPqY",
+          inviteExpiration,
+          groupName: "Whiteshadow MD Support",
+          caption: `🎶 ${meta.title}\n👤 ${meta?.author?.name || "Unknown"} • ⏱ ${meta?.timestamp || ""}\n🔗 ${meta?.url || ""}`,
+          jpegThumbnail
         }
       }
     }, { quoted: mek });
 
   } catch (err) {
-    console.error(err);
+    console.error("song cmd error:", err);
     reply("⚠️ An error occurred while processing your request.");
   }
 });
