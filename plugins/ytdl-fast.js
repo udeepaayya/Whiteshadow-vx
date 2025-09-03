@@ -61,19 +61,6 @@ cmd({
 
 
 
-// 🔹 Unicode / fancy fonts functions
-const fonts = [
-  text => text.split("").map(c => c ? "𝓂" : c).join(""), // Example fancy
-  text => text.split("").map(c => c ? "𝕄" : c).join(""),
-  text => text.split("").map(c => c ? "𝔐" : c).join(""),
-  text => text.split("").map(c => c ? "Ｍ" : c).join("")
-];
-
-function randomFont(text) {
-  const fn = fonts[Math.floor(Math.random() * fonts.length)];
-  return fn(text);
-}
-
 cmd({
   pattern: "song",
   alias: ["play", "mp3"],
@@ -97,7 +84,6 @@ cmd({
     const meta = data.result.metadata;
     const downloadUrl = data.result.downloads;
 
-    // 🔹 Fetch thumbnail
     let buffer;
     try {
       const thumbRes = await fetch(meta.thumbnail || meta.image);
@@ -106,28 +92,28 @@ cmd({
       buffer = null;
     }
 
-    // 🔹 Styled boxed caption with random fonts
+    // 🔹 Fancy font / Unicode box
     const caption = `
 ╔═══════════════
-🎶 ${randomFont("Now Playing")} 🎶
+🎶 𝓝𝓸𝔀 𝓟𝓵𝓪𝔂𝓲𝓷𝓰 🎶
 ╠═══════════════
-🎵 ${randomFont("Title")}: ${meta.title}
-👤 ${randomFont("Artist")}: ${meta?.author?.name || "Unknown"}
-⏱ ${randomFont("Duration")}: ${meta?.timestamp || "N/A"}
-👁 ${randomFont("Views")}: ${meta?.views?.toLocaleString() || "N/A"}
-🔗 ${randomFont("Watch on YouTube")}: ${meta.url}
+🎵 𝕋𝕚𝕥𝕝𝕖: *${meta.title}*
+👤 𝔸𝕣𝕥𝕚𝕤𝕥: *${meta?.author?.name || "Unknown"}*
+⏱ 𝔻𝕦𝕣𝕒𝕥𝕚𝕠𝕟: *${meta?.timestamp || "N/A"}*
+👁 𝕍𝕚𝕖𝕨𝕤: *${meta?.views?.toLocaleString() || "N/A"}*
+🔗 [𝕎𝕒𝕥𝕔𝕙 𝕠𝕟 𝕐𝕋](${meta.url})
 ╠═══════════════
-⚡ ${randomFont("Powered by Whiteshadow MD")}
+⚡ 𝓟𝓸𝔀𝓮𝓻𝓮𝓭 𝓫𝔂 *Whiteshadow MD*
 ╚═══════════════
 `;
 
-    // 🔹 Send details card
+    // 🔹 Send styled details card
     await conn.sendMessage(from, {
       image: buffer,
       caption: caption
     }, { quoted: mek });
 
-    // 🔹 Then send audio
+    // 🔹 Then auto-send the audio
     await conn.sendMessage(from, {
       audio: { url: downloadUrl },
       mimetype: "audio/mpeg",
@@ -139,3 +125,4 @@ cmd({
     reply("⚠️ An error occurred while processing your request.");
   }
 });
+      
