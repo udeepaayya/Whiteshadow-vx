@@ -61,6 +61,19 @@ cmd({
 
 
 
+// 🔹 Unicode / fancy fonts functions
+const fonts = [
+  text => text.split("").map(c => c ? "𝓂" : c).join(""), // Example fancy
+  text => text.split("").map(c => c ? "𝕄" : c).join(""),
+  text => text.split("").map(c => c ? "𝔐" : c).join(""),
+  text => text.split("").map(c => c ? "Ｍ" : c).join("")
+];
+
+function randomFont(text) {
+  const fn = fonts[Math.floor(Math.random() * fonts.length)];
+  return fn(text);
+}
+
 cmd({
   pattern: "song",
   alias: ["play", "mp3"],
@@ -84,31 +97,37 @@ cmd({
     const meta = data.result.metadata;
     const downloadUrl = data.result.downloads;
 
-    let jpegThumbnail;
+    // 🔹 Fetch thumbnail
+    let buffer;
     try {
-      const thRes = await fetch(meta.thumbnail || meta.image);
-      const arr = await thRes.arrayBuffer();
-      jpegThumbnail = Buffer.from(arr);
+      const thumbRes = await fetch(meta.thumbnail || meta.image);
+      buffer = Buffer.from(await thumbRes.arrayBuffer());
     } catch {
-      jpegThumbnail = null;
+      buffer = null;
     }
 
-    // 1️⃣ Send song details card (with thumbnail)
+    // 🔹 Styled boxed caption with random fonts
+    const caption = `
+╔═══════════════
+🎶 ${randomFont("Now Playing")} 🎶
+╠═══════════════
+🎵 ${randomFont("Title")}: ${meta.title}
+👤 ${randomFont("Artist")}: ${meta?.author?.name || "Unknown"}
+⏱ ${randomFont("Duration")}: ${meta?.timestamp || "N/A"}
+👁 ${randomFont("Views")}: ${meta?.views?.toLocaleString() || "N/A"}
+🔗 ${randomFont("Watch on YouTube")}: ${meta.url}
+╠═══════════════
+⚡ ${randomFont("Powered by Whiteshadow MD")}
+╚═══════════════
+`;
+
+    // 🔹 Send details card
     await conn.sendMessage(from, {
-      text: `🎶 *Song Found!*\n\n🎵 Title: *${meta.title}*\n👤 Artist: *${meta?.author?.name || "Unknown"}*\n⏱ Duration: *${meta?.timestamp || "N/A"}*\n👁 Views: *${meta?.views?.toLocaleString() || "N/A"}*\n\n🔗 ${meta.url}\n\n⚡ Powered by *Whiteshadow MD*`,
-      contextInfo: {
-        externalAdReply: {
-          title: meta.title.length > 25 ? meta.title.substring(0, 22) + "..." : meta.title,
-          body: `${meta?.author?.name || "Unknown"} • ⏱ ${meta?.timestamp || ""}`,
-          thumbnail: jpegThumbnail,
-          mediaType: 1,
-          sourceUrl: meta.url,
-          renderLargerThumbnail: true
-        }
-      }
+      image: buffer,
+      caption: caption
     }, { quoted: mek });
 
-    // 2️⃣ Then auto-send the audio file
+    // 🔹 Then send audio
     await conn.sendMessage(from, {
       audio: { url: downloadUrl },
       mimetype: "audio/mpeg",
