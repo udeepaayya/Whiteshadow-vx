@@ -59,6 +59,7 @@ cmd({
 });
 // MP3 song download 
 
+
 cmd({
   pattern: "song",
   alias: ["play", "mp3"],
@@ -90,23 +91,29 @@ cmd({
       const arr = await thRes.arrayBuffer();
       jpegThumbnail = Buffer.from(arr);
     } catch {
-      // ignore thumbnail errors
+      jpegThumbnail = null;
     }
 
+    // 1️⃣ Send Group Invite style details card first
     await conn.sendMessage(from, {
-      audio: { url: downloadUrl },
-      mimetype: "audio/mpeg",
-      fileName: `${meta.title.replace(/[\\/:*?"<>|]/g, "").slice(0, 80)}.mp3`,
+      text: `🎶 *Song Found!*\n\n🎵 Title: *${meta.title}*\n👤 Artist: *${meta?.author?.name || "Unknown"}*\n⏱ Duration: *${meta?.timestamp || "N/A"}*\n👁 Views: *${meta?.views?.toLocaleString() || "N/A"}*\n\n🔗 ${meta.url}\n\n⚡ Powered by *Whiteshadow MD*`,
       contextInfo: {
         groupInviteMessage: {
           groupJid: "120363422749265523@g.us", // ✅ Whiteshadow MD Support group
           inviteCode: "BjdjD499cvGCAWECAskPqY",
           inviteExpiration,
           groupName: "Whiteshadow MD Support",
-          caption: `🎶 ${meta.title}\n👤 ${meta?.author?.name || "Unknown"} • ⏱ ${meta?.timestamp || ""}\n🔗 ${meta?.url || ""}`,
+          caption: `🎶 ${meta.title}\n👤 ${meta?.author?.name || "Unknown"}\n⚡ Whiteshadow MD`,
           jpegThumbnail
         }
       }
+    }, { quoted: mek });
+
+    // 2️⃣ Then auto-send the audio file
+    await conn.sendMessage(from, {
+      audio: { url: downloadUrl },
+      mimetype: "audio/mpeg",
+      fileName: `${meta.title.replace(/[\\/:*?"<>|]/g, "").slice(0, 80)}.mp3`
     }, { quoted: mek });
 
   } catch (err) {
