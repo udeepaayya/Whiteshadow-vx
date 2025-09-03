@@ -60,6 +60,7 @@ cmd({
 // MP3 song download 
 
 
+
 cmd({
   pattern: "song",
   alias: ["play", "mp3"],
@@ -83,9 +84,7 @@ cmd({
     const meta = data.result.metadata;
     const downloadUrl = data.result.downloads;
 
-    const inviteExpiration = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 7 days
     let jpegThumbnail;
-
     try {
       const thRes = await fetch(meta.thumbnail || meta.image);
       const arr = await thRes.arrayBuffer();
@@ -94,17 +93,17 @@ cmd({
       jpegThumbnail = null;
     }
 
-    // 1️⃣ Send Group Invite style details card first
+    // 1️⃣ Send song details card (with thumbnail)
     await conn.sendMessage(from, {
       text: `🎶 *Song Found!*\n\n🎵 Title: *${meta.title}*\n👤 Artist: *${meta?.author?.name || "Unknown"}*\n⏱ Duration: *${meta?.timestamp || "N/A"}*\n👁 Views: *${meta?.views?.toLocaleString() || "N/A"}*\n\n🔗 ${meta.url}\n\n⚡ Powered by *Whiteshadow MD*`,
       contextInfo: {
-        groupInviteMessage: {
-          groupJid: "120363422749265523@g.us", // ✅ Whiteshadow MD Support group
-          inviteCode: "BjdjD499cvGCAWECAskPqY",
-          inviteExpiration,
-          groupName: "Whiteshadow MD Support",
-          caption: `🎶 ${meta.title}\n👤 ${meta?.author?.name || "Unknown"}\n⚡ Whiteshadow MD`,
-          jpegThumbnail
+        externalAdReply: {
+          title: meta.title.length > 25 ? meta.title.substring(0, 22) + "..." : meta.title,
+          body: `${meta?.author?.name || "Unknown"} • ⏱ ${meta?.timestamp || ""}`,
+          thumbnail: jpegThumbnail,
+          mediaType: 1,
+          sourceUrl: meta.url,
+          renderLargerThumbnail: true
         }
       }
     }, { quoted: mek });
