@@ -1,6 +1,6 @@
 // Bilal-MD style plugin: ytmp4x.js
 // Drop this file into your Bilal-MD plugins folder and restart the bot.
-
+const { cmd } = require('../command');
 const axios = require('axios');
 
 module.exports = {
