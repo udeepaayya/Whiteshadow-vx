@@ -1,53 +1,49 @@
-const config = require('../config');
-const { cmd } = require('../command');
-const yts = require('yt-search');
+// Bilal-MD style plugin: ytmp4x.js // Drop this file into your Bilal-MD plugins folder and restart the bot.
 
-cmd({
-    pattern: "video2",
-    alias: ["mp4", "song"],
-    react: "🎥",
-    desc: "Download video from YouTube",
-    category: "download",
-    use: ".video <query or url>",
-    filename: __filename
-}, async (conn, m, mek, { from, q, reply }) => {
-    try {
-        if (!q) return await reply("❌ Please provide a video name or YouTube URL!");
+const axios = require('axios');
 
-        let videoUrl, title;
-        
-        // Check if it's a URL
-        if (q.match(/(youtube\.com|youtu\.be)/)) {
-            videoUrl = q;
-            const videoInfo = await yts({ videoId: q.split(/[=/]/).pop() });
-            title = videoInfo.title;
-        } else {
-            // Search YouTube
-            const search = await yts(q);
-            if (!search.videos.length) return await reply("❌ No results found!");
-            videoUrl = search.videos[0].url;
-            title = search.videos[0].title;
-        }
+module.exports = { name: 'ytmp4x', alias: ['ytmp4','ytshort','ytshorts'], desc: 'Download YouTube MP4 using PrinceTech API (Bilal-MD style).', category: 'download', isOwner: false,
 
-        await reply("⏳ Downloading video...");
+async handle(conn, msg, { args, quoted, reply }) { try { const extractUrl = (text = '') => { if (!text) return null; const urlRegex = /(https?://(?:www.)?(?:youtube.com|youtu.be)/[\w-?=&%.#/]+)|(youtube.com/[\w-?=&%.#/]+)/i; const match = text.match(urlRegex); if (!match) return null; return match[0].startsWith('http') ? match[0] : https://${match[0]}; };
 
-        // Use API to get video
-        const apiUrl = `https://apis.davidcyriltech.my.id/download/ytmp4?url=${encodeURIComponent(videoUrl)}`;
-        const response = await fetch(apiUrl);
-        const data = await response.json();
+const provided = args?.length ? args.join(' ') : (quoted && (quoted.text || quoted.caption)) || '';
+  const ytUrl = extractUrl(provided);
 
-        if (!data.success) return await reply("❌ Failed to download video!");
+  if (!ytUrl) return await reply('🧩 Usage: ytmp4x <youtube-url>\nOr reply to a message containing a YouTube link.');
 
-        await conn.sendMessage(from, {
-            video: { url: data.result.download_url },
-            mimetype: 'video/mp4',
-            caption: `*${title}*`
-        }, { quoted: mek });
+  const api = `https://api.princetechn.com/api/download/ytmp4?apikey=prince&url=${encodeURIComponent(ytUrl)}`;
+  await reply('⏳ Fetching video info from PrinceTech...');
 
-        await reply(`✅ *${title}* downloaded successfully!`);
+  const { data } = await axios.get(api, { timeout: 30000, headers: { 'User-Agent': 'Bilal-MD/1.0' } });
 
-    } catch (error) {
-        console.error(error);
-        await reply(`❌ Error: ${error.message}`);
-    }
-});
+  if (!data || data.success !== true || !data.result?.download_url) {
+    return await reply('❌ Unable to fetch video info. Try another link or later.');
+  }
+
+  const { title, thumbnail, download_url, quality } = data.result;
+  const cleanTitle = title ? title.replace(/[\\/:*?"<>|]/g, '') : 'video';
+
+  // send details card first
+  await conn.sendMessage(msg.from, {
+    image: { url: thumbnail },
+    caption: `*🎬 Title:* ${title}\n📺 *Quality:* ${quality || '—'}\n🔗 *Download:* ${download_url}`,
+  }, { quoted: msg });
+
+  // then send video file
+  try {
+    await conn.sendMessage(msg.from, {
+      video: { url: download_url },
+      fileName: `${cleanTitle}.mp4`,
+      mimetype: 'video/mp4',
+      caption: `✅ ${title}\n📥 Source: PrinceTech API`
+    }, { quoted: msg });
+  } catch (err) {
+    await reply(`⚠️ Can't upload video (size or bot limit).\nDirect download: ${download_url}`);
+  }
+} catch (error) {
+  console.error('ytmp4x (bilal) error =>', error?.message || error);
+  await reply('🚫 Unexpected error. Please try again later.');
+}
+
+} };
+
