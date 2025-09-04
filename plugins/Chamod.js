@@ -5,85 +5,84 @@ const fetch = require('node-fetch');
 cmd({
     pattern: "ytmp4x",
     alias: ["videox"],
-    desc: "Download YouTube videos with reply choice system.",
+    desc: "Download YouTube videos with quality choice.",
     react: "🎥",
     category: "download",
     filename: __filename
 },
-async (conn, mek, m, {
-    from, q, pushname, reply
-}) => {
+async (conn, mek, m, { from, q, pushname, reply }) => {
     try {
-        if (!q) {
-            return reply("❌ *Please provide a YouTube link or search title!*\n\n_Example:_ `.darama Believer`");
-        }
+        if (!q) return reply("❌ *Please provide a YouTube link or search title!*\n\n_Example:_ `.ytmp4x Believer`");
 
-        // Search video
+        // Search YouTube
         const search = await yts(q);
-        if (!search.videos || search.videos.length === 0) {
-            return reply("⚠️ *No matching videos found!*");
-        }
+        if (!search.videos || search.videos.length === 0) return reply("⚠️ *No matching videos found!*");
 
         const data = search.videos[0];
         const url = data.url;
+
+        // First API Call
+        const apiUrl = `https://www.dark-yasiya-api.site/download/ytmp4?url=${encodeURIComponent(url)}&quality=360`;
+        const res = await fetch(apiUrl);
+        const json = await res.json();
+
+        if (!json.status || !json.result) return reply("❌ *Video download failed! Try again later.*");
+
+        const video = json.result.data;
+        const qualities = json.result.download.availableQuality;
 
         // Send details
         let caption = `
 ╭───────────────⭓
 │   *🎥 VIDEO FOUND 🎥*
 │───────────────
-│ *📌 Title:* ${data.title}
-│ *⏳ Duration:* ${data.timestamp}
-│ *👁 Views:* ${data.views}
-│ *📅 Uploaded:* ${data.ago}
-│ *🔗 Link:* ${data.url}
+│ *📌 Title:* ${video.title}
+│ *⏳ Duration:* ${video.timestamp}
+│ *👁 Views:* ${video.views}
+│ *📅 Uploaded:* ${video.ago}
+│ *🔗 Link:* ${video.url}
 ╰───────────────⭓
 
-💬 *Reply with:*
-1️⃣ for Video
-2️⃣ for Document
+💬 *Reply with a number to choose quality:*
+${qualities.map((q, i) => `${i + 1}️⃣ ${q}p`).join("\n")}
         `;
 
-        await conn.sendMessage(from, { image: { url: data.thumbnail }, caption }, { quoted: mek });
+        await conn.sendMessage(from, { image: { url: video.thumbnail }, caption }, { quoted: mek });
 
-        // Wait for user reply
+        // Wait for reply
         const choice = await new Promise((resolve) => {
             conn.ev.on('messages.upsert', function onMessage(u) {
                 const msg = u.messages[0];
                 if (!msg.key.fromMe && msg.key.remoteJid === from && msg.message?.conversation) {
                     const text = msg.message.conversation.trim();
-                    if (text === "1" || text === "2") {
+                    const index = parseInt(text);
+                    if (index >= 1 && index <= qualities.length) {
                         conn.ev.off('messages.upsert', onMessage);
-                        resolve(text);
+                        resolve(qualities[index - 1]);
                     }
                 }
             });
         });
 
-        // Download from API
-        const apiUrl = `https://api.giftedtech.web.id/api/download/dlmp4?apikey=gifted&url=${encodeURIComponent(url)}`;
-        const res = await fetch(apiUrl);
-        const json = await res.json();
+        // API Call with selected quality
+        const dlUrl = `https://www.dark-yasiya-api.site/download/ytmp4?url=${encodeURIComponent(url)}&quality=${choice}`;
+        const dlRes = await fetch(dlUrl);
+        const dlJson = await dlRes.json();
 
-        if (!json.success || !json.result?.download_url) {
-            return reply("❌ *Video download failed! Try again later.*");
+        if (!dlJson.status || !dlJson.result?.download?.url) {
+            return reply("❌ *Download link not available for that quality.*");
         }
 
-        // Send in selected format
-        if (choice === "1") {
-            await conn.sendMessage(from, {
-                video: { url: json.result.download_url },
-                mimetype: "video/mp4",
-                caption: `✅ *Here’s your video!*\n\n> _WHITESHADOW-MD Official Drop_`
-            }, { quoted: mek });
-        } else if (choice === "2") {
-            await conn.sendMessage(from, {
-                document: { url: json.result.download_url },
-                mimetype: "video/mp4",
-                fileName: `${json.result.title || "video"}.mp4`,
-                caption: "*© WHITESHADOW-MD*"
-            }, { quoted: mek });
-        }
+        const fileUrl = dlJson.result.download.url;
+        const filename = dlJson.result.download.filename || `${video.title}.mp4`;
+
+        // Send video
+        await conn.sendMessage(from, {
+            video: { url: fileUrl },
+            mimetype: "video/mp4",
+            fileName: filename,
+            caption: `✅ *Here’s your video in ${choice}p!*\n\n> _WHITESHADOW-MD Official Drop_`
+        }, { quoted: mek });
 
     } catch (err) {
         console.error(err);
