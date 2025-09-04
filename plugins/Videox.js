@@ -61,7 +61,7 @@ async (conn, mek, m, { from, args, reply, quoted }) => {
         video: { url: download_url },
         fileName: `${title.replace(/[\\/:*?"<>|]/g, '')}.mp4`,
         mimetype: 'video/mp4',
-        caption: `✅ Downloaded: *${title}*\n📥 Source: PrinceTech API`
+        caption: `✅ Downloaded: *${title}*\n📥 POWERED BY WHITESHADOW-MD`
       }, { quoted: m });
     } catch (err) {
       await reply(`⚠️ I couldn't upload the file due to size/limits.\n\n*Direct Download:* ${download_url}`);
