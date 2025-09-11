@@ -7,7 +7,7 @@ const fetch = require('node-fetch');
 // MP4 video download
 cmd({ 
     pattern: "mp4", 
-    alias: ["video"], 
+    alias: ["vid"], 
     react: "🎥", 
     desc: "Download YouTube video", 
     category: "main", 
