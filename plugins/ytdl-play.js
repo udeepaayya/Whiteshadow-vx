@@ -1,6 +1,5 @@
-const config = require('../config');
 const { cmd } = require('../command');
-const yts = require('yt-search');
+const fetch = require('node-fetch');
 
 cmd({
     pattern: "yt2",
@@ -8,38 +7,33 @@ cmd({
     react: "🎵",
     desc: "Download audio from YouTube",
     category: "download",
-    use: ".song <query or url>",
+    use: ".yt2 <song name or url>",
     filename: __filename
 }, async (conn, m, mek, { from, q, reply }) => {
     try {
         if (!q) return await reply("❌ Please provide a song name or YouTube URL!");
 
-        let videoUrl, title;
-        
-        // Check if it's a URL
-        if (q.match(/(youtube\.com|youtu\.be)/)) {
-            videoUrl = q;
-            const videoInfo = await yts({ videoId: q.split(/[=/]/).pop() });
-            title = videoInfo.title;
-        } else {
-            // Search YouTube
-            const search = await yts(q);
-            if (!search.videos.length) return await reply("❌ No results found!");
-            videoUrl = search.videos[0].url;
-            title = search.videos[0].title;
-        }
+        await reply("⏳ Searching and downloading audio...");
 
-        await reply("⏳ Downloading audio...");
-
-        // Use API to get audio
-        const apiUrl = `https://api.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(videoUrl)}`;
+        // API Call
+        const apiUrl = `https://api.nekolabs.my.id/downloader/youtube/play/v1?q=${encodeURIComponent(q)}`;
         const response = await fetch(apiUrl);
         const data = await response.json();
 
-        if (!data.success) return await reply("❌ Failed to download audio!");
+        if (!data.status || !data.result) return await reply("❌ Failed to fetch audio!");
 
+        const { title, channel, duration, cover, url } = data.result.metadata;
+        const downloadUrl = data.result.downloadUrl;
+
+        // Send song details with cover
         await conn.sendMessage(from, {
-            audio: { url: data.result.download_url },
+            image: { url: cover },
+            caption: `🎶 *${title}*\n📺 ${channel}\n⏱️ ${duration}\n🔗 ${url}`
+        }, { quoted: mek });
+
+        // Send audio file
+        await conn.sendMessage(from, {
+            audio: { url: downloadUrl },
             mimetype: 'audio/mpeg',
             ptt: false
         }, { quoted: mek });
@@ -51,4 +45,3 @@ cmd({
         await reply(`❌ Error: ${error.message}`);
     }
 });
-
