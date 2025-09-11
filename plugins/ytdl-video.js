@@ -1,5 +1,6 @@
 const { cmd } = require('../command');
 const axios = require('axios');
+const yts = require('yt-search');
 
 function extractUrl(text = '') {
   if (!text) return null;
@@ -19,16 +20,24 @@ cmd({
 },
 async (conn, mek, m, { from, args, reply, quoted }) => {
   try {
-    const provided = args.join(' ').trim() || (quoted && (quoted.text || quoted.caption)) || '';
-    const ytUrl = extractUrl(provided);
+    let provided = args.join(' ').trim() || (quoted && (quoted.text || quoted.caption)) || '';
 
+    let ytUrl = extractUrl(provided);
+
+    // 🔹 If not a YouTube URL → search with yt-search
     if (!ytUrl) {
-      return reply('🧩 *Usage:* .ytmp4 <youtube-url>\n👉 Or reply to a message containing a YouTube link.');
+      if (!provided) return reply('🧩 *Usage:* .video <youtube-url | search query>\n👉 Or reply to a message containing a YouTube link.');
+
+      const search = await yts(provided);
+      if (!search?.all?.length) return reply('❌ No results found on YouTube.');
+
+      ytUrl = search.all[0].url; // first result URL
+      await reply(`🔎 Found: *${search.all[0].title}* \n\n⏳ Fetching video info...`);
+    } else {
+      await reply('⏳ Fetching video info...');
     }
 
     const api = `https://api.princetechn.com/api/download/ytmp4?apikey=prince&url=${encodeURIComponent(ytUrl)}`;
-    await reply('⏳ Fetching video info...');
-
     const { data } = await axios.get(api, { timeout: 30_000, headers: { 'User-Agent': 'WhiteShadow-MD/1.0' } });
 
     if (!data || data.success !== true || !data.result?.download_url) {
@@ -38,13 +47,13 @@ async (conn, mek, m, { from, args, reply, quoted }) => {
     const { title, thumbnail, download_url, quality } = data.result;
     const caption = `*🎬 ${title}*\n🧩 Quality: *${quality || '—'}*\n\n➡️ *Auto-sending video...*`;
 
-    // Normal image preview only
+    // Normal image preview
     await conn.sendMessage(from, {
       image: { url: thumbnail },
       caption
     }, { quoted: m });
 
-    // Send video
+    // Send video file
     try {
       await conn.sendMessage(from, {
         video: { url: download_url },
@@ -56,7 +65,7 @@ async (conn, mek, m, { from, args, reply, quoted }) => {
       await reply(`⚠️ I couldn't upload the file due to size/limits.\n\n*Direct Download:* ${download_url}`);
     }
   } catch (e) {
-    console.error('ytmp4x error =>', e?.message || e);
+    console.error('video cmd error =>', e?.message || e);
     reply('🚫 An unexpected error occurred. Please try again.');
   }
 });
