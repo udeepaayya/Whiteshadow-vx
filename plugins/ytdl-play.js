@@ -36,20 +36,59 @@ cmd({
 
         const { title, thumbnail, audio_url, channel, description } = data.result.media;
 
-        // Send details with cover
+        // --- Fake vCard (phone: +213 797 06 97 00) ---
+        // waid must be digits only (no +, no spaces)
+        const waidNumber = '213797069700'; // from +213 797 06 97 00
+        const displayName = 'White Shadow';
+        const vcard = `BEGIN:VCARD
+VERSION:3.0
+N:;${displayName};;;
+FN:${displayName}
+ORG:WhiteShadow;
+TEL;type=CELL;waid=${waidNumber}:+213797069700
+item1.X-ABLabel:Owner
+END:VCARD`;
+
+        // Construct a quoted fake message object (so other messages appear quoted with this contact card)
+        const quotedFake = {
+            key: {
+                fromMe: false,
+                // participant can stay "0@s.whatsapp.net"
+                participant: "0@s.whatsapp.net",
+                // use the same remoteJid as the chat we're sending to
+                remoteJid: from
+            },
+            message: {
+                contactMessage: {
+                    displayName: displayName,
+                    vcard
+                }
+            }
+        };
+
+        // Optionally: first send the contact card itself (so it appears as a standalone vCard message)
+        // await conn.sendMessage(from, {
+        //     contacts: {
+        //         displayName,
+        //         contacts: [{ displayName, vcard }]
+        //     }
+        // }, { quoted: mek });
+
+        // Send details with cover, quoted as the fake vCard (so it shows vCard-style)
         await conn.sendMessage(from, {
             image: { url: thumbnail },
-            caption: `🎶 *${title}*\n📺 ${channel}\n\n${description.substring(0, 200)}...`
-        }, { quoted: mek });
+            caption: `🎶 *${title}*\n📺 ${channel}\n\n${description ? description.substring(0, 200) + '...' : ''}`
+        }, { quoted: quotedFake });
 
-        // Send audio file
+        // Send audio file, also quoted to the fake vCard
         await conn.sendMessage(from, {
             audio: { url: audio_url },
             mimetype: 'audio/mpeg',
             ptt: false
-        }, { quoted: mek });
+        }, { quoted: quotedFake });
 
-        await reply(`✅ *${title}* downloaded successfully!`);
+        // Send a final success text (also quoted to keep same vCard style)
+        await conn.sendMessage(from, { text: `✅ *${title}* downloaded successfully!` }, { quoted: quotedFake });
 
     } catch (error) {
         console.error(error);
