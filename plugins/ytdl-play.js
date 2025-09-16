@@ -36,29 +36,10 @@ cmd({
 
         const { title, thumbnail, audio_url, channel, description } = data.result.media;
 
-        // --- Fake vCard (phone: +213 797 06 97 00) ---
-        // NOTE: waid should be digits only (countrycode + number, no plus or spaces)
-        const waidNumber = '213797069700'; // derived from +213 797 06 97 00 (no +, no spaces)
-        const vcard = `BEGIN:VCARD
-VERSION:3.0
-N:;White Shadow;;;
-FN:White Shadow
-ORG:WhiteShadow;
-TEL;type=CELL;waid=${waidNumber}:+213797069700
-END:VCARD`;
-
-        // Send vCard as contact (quoted to the incoming message)
-        await conn.sendMessage(from, {
-            contacts: {
-                displayName: "White Shadow",
-                contacts: [{ displayName: "White Shadow", vcard }]
-            }
-        }, { quoted: mek });
-
         // Send details with cover
         await conn.sendMessage(from, {
             image: { url: thumbnail },
-            caption: `🎶 *${title}*\n📺 ${channel}\n\n${description ? description.substring(0, 200) + '...' : ''}`
+            caption: `🎶 *${title}*\n📺 ${channel}\n\n${description.substring(0, 200)}...`
         }, { quoted: mek });
 
         // Send audio file
