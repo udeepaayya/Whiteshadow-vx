@@ -1,7 +1,34 @@
 const { cmd } = require('../command');
 const fetch = require('node-fetch');
-const { uploadToTelegraph } = require('../lib/telegra.js'); // use your final lib
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const axios = require('axios');
+const FormData = require('form-data');
 
+// Catbox uploader function
+async function uploadToCatbox(buffer, filename='file.jpg') {
+    const tempPath = path.join(os.tmpdir(), filename);
+    fs.writeFileSync(tempPath, buffer);
+
+    const form = new FormData();
+    form.append('fileToUpload', fs.createReadStream(tempPath), filename);
+    form.append('reqtype', 'fileupload');
+
+    try {
+        const { data } = await axios.post("https://catbox.moe/user/api.php", form, {
+            headers: form.getHeaders()
+        });
+        fs.unlinkSync(tempPath);
+        return data; // URL string
+    } catch(e) {
+        if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+        console.error('Catbox upload error:', e);
+        return null;
+    }
+}
+
+// Plugin command
 cmd({
   pattern: "ytcomment",
   desc: "Make fake YouTube comment (Singlish replies)",
@@ -25,17 +52,8 @@ cmd({
     const mediaBuffer = await quoted.download().catch(() => null);
     if (!mediaBuffer) return reply('⚠️ Image download fail machan, try again!');
 
-    // save temp file
-    const fs = require('fs');
-    const path = require('path');
-    const os = require('os');
-    const tmpPath = path.join(os.tmpdir(), 'ytcomment.jpg');
-    fs.writeFileSync(tmpPath, mediaBuffer);
-
-    // upload to telegra.ph
-    const uploadedUrl = await uploadToTelegraph(tmpPath).catch(() => null);
-    fs.unlinkSync(tmpPath); // delete temp file
-
+    // upload to Catbox
+    const uploadedUrl = await uploadToCatbox(mediaBuffer, 'ytcomment.jpg');
     if (!uploadedUrl) return reply('⚠️ Upload fail machan, try again later!');
 
     // parse username and comment
