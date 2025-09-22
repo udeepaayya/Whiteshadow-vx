@@ -1,89 +1,73 @@
+const { cmd } = require('../command');
 const axios = require("axios");
-const FormData = require("form-data");
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
-const { cmd } = require("../command");
 
 cmd({
-  pattern: "url3",
-  alias: ["ibb", "imgbb"],
-  react: "🌐",
-  desc: "Upload media or image URL to imgbb",
+  pattern: "ibb",
+  alias: ["imgbb", "uploadibb", "url3"],
+  react: "🖼️",
+  desc: "Upload image to imgbb & return fake verified vCard",
   category: "utility",
-  use: ".url3 [reply to image / give url]",
   filename: __filename
-}, async (client, message, args, { reply }) => {
-  const cleanupFiles = (files) => {
-    try {
-      (Array.isArray(files) ? files : [files]).forEach(f => {
-        if (f && fs.existsSync(f)) fs.unlinkSync(f);
-      });
-    } catch (e) { console.error("cleanup error:", e); }
-  };
-
+}, async (conn, m, { reply, q, isQuotedImage }) => {
   try {
     let imageUrl;
-    const quotedMsg = message.quoted ? message.quoted : message;
-    const mimeType = (quotedMsg.msg || quotedMsg).mimetype || "";
 
-    if (mimeType && mimeType.includes("image")) {
-      // download image
-      const mediaBuffer = await quotedMsg.download();
-      if (!mediaBuffer) throw new Error("Failed to download image.");
-      const tempFile = path.join(os.tmpdir(), `ibb_${Date.now()}.jpg`);
-      fs.writeFileSync(tempFile, mediaBuffer);
-
-      // upload file via form-data
-      const form = new FormData();
-      form.append("image", fs.createReadStream(tempFile));
-      form.append("filename", "WhiteShadow");
-
-      const res = await axios.post("https://delirius-apiofc.vercel.app/tools/ibb", form, {
-        headers: form.getHeaders()
-      });
-
-      cleanupFiles(tempFile);
-      imageUrl = res.data;
-    } else if (/^https?:\/\//.test(args)) {
-      // upload from link
-      const res = await axios.get(
-        `https://delirius-apiofc.vercel.app/tools/ibb?image=${encodeURIComponent(args)}&filename=WhiteShadow`
-      );
-      imageUrl = res.data;
+    // Get image either from quoted message or from text URL
+    if (isQuotedImage) {
+      const mediaBuffer = await m.quoted.download();
+      const base64 = mediaBuffer.toString("base64");
+      imageUrl = `data:image/jpeg;base64,${base64}`;
+    } else if (/^https?:\/\//.test(q)) {
+      imageUrl = q;
     } else {
-      throw "⚠️ Please reply to an image or provide a valid image URL.";
+      return reply("⚠️ Please reply to an image or provide a valid image URL.");
     }
 
-    if (!imageUrl.status || !imageUrl.data) throw new Error("Upload failed!");
+    // Call Delirius API
+    const apiRes = await axios.get(`https://delirius-apiofc.vercel.app/tools/ibb?image=${encodeURIComponent(imageUrl)}&filename=WhiteShadow`);
+    const data = apiRes.data?.data;
 
-    const data = imageUrl.data;
+    if (!data || !data.url) return reply("❌ Upload failed!");
 
-    // Build verified-style card (text only, no vCard)
-    const card =
-`🔹 IBB Upload • Verified by WhiteShadow 🔹
-────────────────────────
-🆔 ID       : ${data.id}
-📛 Name     : ${data.name}
-📁 Filename : ${data.filename}
-📄 Ext      : ${data.extension}
-📏 Size     : ${data.size}
-📐 Res      : ${data.width}x${data.height}
-📅 Date     : ${data.published}
-🔗 URL      : ${data.url}
-🖼️ Direct   : ${data.image}
-────────────────────────
-© WhiteShadow-MD • ${new Date().toLocaleDateString()}
-`;
+    // Build caption / verified style vCard
+    const vcardMsg = {
+      contacts: {
+        displayName: `WHITESHADOW Upload • ${data.name}`,
+        contacts: [{
+          vcard: `BEGIN:VCARD
+VERSION:3.0
+FN:${data.name}
+ORG:WHITESHADOW-MD
+TEL;type=CELL;type=VOICE;waid=94704896880:+94 70 489 6880
+URL:${data.url}
+NOTE:Filename: ${data.filename}\nSize: ${data.size}\nResolution: ${data.width}x${data.height}
+PHOTO;VALUE=URI:${data.image}
+END:VCARD`
+        }]
+      }
+    };
 
-    // send image preview + caption
-    await client.sendMessage(message.from, {
-      image: { url: data.image },
-      caption: card
-    }, { quoted: message });
+    // Send fake verified contact
+    await conn.sendMessage(m.chat, vcardMsg, { quoted: m });
 
-  } catch (err) {
-    console.error("url3 error:", err);
-    await reply(`❌ Error: ${err.message || err}`);
+    // Send image with caption as preview
+    const caption = `⬤───〔 *IBB UPLOAD* 〕───⬤
+🆔 ID: ${data.id}
+📛 Name: ${data.name}
+📁 Filename: ${data.filename}
+📄 Ext: ${data.extension}
+📏 Size: ${data.size}
+📐 Res: ${data.width}x${data.height}
+📅 Published: ${data.published}
+🔗 Link: ${data.url}
+🖼️ Direct: ${data.image}
+────────────────────
+© WHITESHADOW-MD`;
+
+    await conn.sendMessage(m.chat, { image: { url: data.image }, caption }, { quoted: m });
+
+  } catch (e) {
+    console.log(e);
+    reply(`❌ Error: ${e.message || e}`);
   }
 });
