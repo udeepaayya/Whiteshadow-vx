@@ -1,48 +1,89 @@
-const { cmd } = require('../command');
-const fetch = require('node-fetch');
+const axios = require("axios");
+const FormData = require("form-data");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { cmd } = require("../command");
 
 cmd({
   pattern: "url3",
   alias: ["ibb", "imgbb"],
   react: "🌐",
-  desc: "Upload image to imgbb",
-  category: "tools",
-  use: ".url3 <reply image / image url>",
+  desc: "Upload media or image URL to imgbb",
+  category: "utility",
+  use: ".url3 [reply to image / give url]",
   filename: __filename
-}, async (conn, m, mek, { from, q, reply, isQuotedImage }) => {
+}, async (client, message, args, { reply }) => {
+  const cleanupFiles = (files) => {
+    try {
+      (Array.isArray(files) ? files : [files]).forEach(f => {
+        if (f && fs.existsSync(f)) fs.unlinkSync(f);
+      });
+    } catch (e) { console.error("cleanup error:", e); }
+  };
+
   try {
     let imageUrl;
+    const quotedMsg = message.quoted ? message.quoted : message;
+    const mimeType = (quotedMsg.msg || quotedMsg).mimetype || "";
 
-    if (isQuotedImage) {
-      let media = await conn.downloadAndSaveMediaMessage(mek.quoted);
-      imageUrl = media; 
-    } else if (/^https?:\/\//.test(q)) {
-      imageUrl = q;
+    if (mimeType && mimeType.includes("image")) {
+      // download image
+      const mediaBuffer = await quotedMsg.download();
+      if (!mediaBuffer) throw new Error("Failed to download image.");
+      const tempFile = path.join(os.tmpdir(), `ibb_${Date.now()}.jpg`);
+      fs.writeFileSync(tempFile, mediaBuffer);
+
+      // upload file via form-data
+      const form = new FormData();
+      form.append("image", fs.createReadStream(tempFile));
+      form.append("filename", "WhiteShadow");
+
+      const res = await axios.post("https://delirius-apiofc.vercel.app/tools/ibb", form, {
+        headers: form.getHeaders()
+      });
+
+      cleanupFiles(tempFile);
+      imageUrl = res.data;
+    } else if (/^https?:\/\//.test(args)) {
+      // upload from link
+      const res = await axios.get(
+        `https://delirius-apiofc.vercel.app/tools/ibb?image=${encodeURIComponent(args)}&filename=WhiteShadow`
+      );
+      imageUrl = res.data;
     } else {
-      return reply("⚠️ Please reply to an image or give me a valid image url.");
+      throw "⚠️ Please reply to an image or provide a valid image URL.";
     }
 
-    const apiUrl = `https://delirius-apiofc.vercel.app/tools/ibb?image=${encodeURIComponent(imageUrl)}&filename=WhiteShadow`;
-    const res = await fetch(apiUrl);
-    const data = await res.json();
+    if (!imageUrl.status || !imageUrl.data) throw new Error("Upload failed!");
 
-    if (!data.status) return reply("❌ Upload failed!");
+    const data = imageUrl.data;
 
-    let txt = `⬤───〔 *🌐 IBB UPLOADER* 〕───⬤\n\n`;
-    txt += `🆔 ID: ${data.data.id}\n`;
-    txt += `📛 Name: ${data.data.name}\n`;
-    txt += `📁 Filename: ${data.data.filename}\n`;
-    txt += `📄 Extension: ${data.data.extension}\n`;
-    txt += `📏 Size: ${data.data.size}\n`;
-    txt += `📐 Resolution: ${data.data.width}x${data.data.height}\n`;
-    txt += `📅 Published: ${data.data.published}\n`;
-    txt += `🔗 URL: ${data.data.url}\n`;
-    txt += `🖼️ Direct: ${data.data.image}\n\n`;
-    txt += `© WhiteShadow-MD`;
+    // Build verified-style card (text only, no vCard)
+    const card =
+`🔹 IBB Upload • Verified by WhiteShadow 🔹
+────────────────────────
+🆔 ID       : ${data.id}
+📛 Name     : ${data.name}
+📁 Filename : ${data.filename}
+📄 Ext      : ${data.extension}
+📏 Size     : ${data.size}
+📐 Res      : ${data.width}x${data.height}
+📅 Date     : ${data.published}
+🔗 URL      : ${data.url}
+🖼️ Direct   : ${data.image}
+────────────────────────
+© WhiteShadow-MD • ${new Date().toLocaleDateString()}
+`;
 
-    await conn.sendMessage(from, { image: { url: data.data.image }, caption: txt }, { quoted: mek });
-  } catch (e) {
-    console.log(e);
-    reply("❌ Error occurred while uploading!");
+    // send image preview + caption
+    await client.sendMessage(message.from, {
+      image: { url: data.image },
+      caption: card
+    }, { quoted: message });
+
+  } catch (err) {
+    console.error("url3 error:", err);
+    await reply(`❌ Error: ${err.message || err}`);
   }
 });
