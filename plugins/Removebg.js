@@ -1,33 +1,38 @@
 /**
   ✧ Removebg - tool ✧ ───────────────────────
   𖣔 Type   : Plugin CMD
-  𖣔 API    : https://api.zenzxz.my.id
   𖣔 Upload : Catbox.moe
+  𖣔 API    : https://api.zenzxz.my.id
+  𖣔 Made for WHITESHADOW-MD
 */
 
-const fetch = require("node-fetch");
+const axios = require("axios");
 const FormData = require("form-data");
-const { cmd } = require("../command");
 const fs = require("fs");
-const path = require("path");
 const os = require("os");
+const path = require("path");
+const { cmd } = require("../command");
 
-// Upload to Catbox
-async function catboxUpload(buffer) {
-  let tmpFile = path.join(os.tmpdir(), Date.now() + ".jpg");
-  fs.writeFileSync(tmpFile, buffer);
+// Upload buffer to Catbox
+async function catboxUpload(buffer, mimeType) {
+  const tempFilePath = path.join(os.tmpdir(), `catbox_${Date.now()}`);
+  fs.writeFileSync(tempFilePath, buffer);
 
-  let form = new FormData();
+  // file extension detection
+  let extension = ".jpg";
+  if (mimeType.includes("png")) extension = ".png";
+  else if (mimeType.includes("jpeg")) extension = ".jpg";
+
+  const form = new FormData();
+  form.append("fileToUpload", fs.createReadStream(tempFilePath), `file${extension}`);
   form.append("reqtype", "fileupload");
-  form.append("fileToUpload", fs.createReadStream(tmpFile));
 
-  let res = await fetch("https://catbox.moe/user/api.php", {
-    method: "POST",
-    body: form
+  const res = await axios.post("https://catbox.moe/user/api.php", form, {
+    headers: form.getHeaders(),
   });
 
-  fs.unlinkSync(tmpFile); // delete temp file
-  return await res.text();
+  fs.unlinkSync(tempFilePath);
+  return res.data; // catbox url
 }
 
 cmd({
@@ -38,47 +43,49 @@ cmd({
   react: "🖼️",
   filename: __filename
 },
-async (conn, m, { usedPrefix, command }) => {
+async (client, message, args, { reply, usedPrefix, command }) => {
   try {
-    await conn.sendMessage(m.chat, { react: { text: '⏳', key: m.key } });
+    await client.sendMessage(message.chat, { react: { text: '⏳', key: message.key } });
 
-    let q = m.quoted ? m.quoted : m;
-    let mime = (q.msg || q).mimetype || "";
+    const q = message.quoted ? message.quoted : message;
+    const mime = (q.msg || q).mimetype || "";
 
     if (!mime || !/image\/(jpe?g|png)/.test(mime)) {
-      return m.reply(`🍀 Please reply to or send a JPG/PNG image with the caption: ${usedPrefix + command}`);
+      return reply(`🍀 Please reply to or send a JPG/PNG image with the caption: ${usedPrefix + command}`);
     }
 
-    let media = await q.download();
-    if (!media) return m.reply("⚠️ Failed to download the image.");
+    const mediaBuffer = await q.download();
+    if (!mediaBuffer) return reply("⚠️ Failed to download the image.");
 
-    let up = await catboxUpload(media).catch(() => null);
-    if (!up) return m.reply("⚠️ Failed to upload image to Catbox server.");
+    // upload to Catbox
+    const catboxUrl = await catboxUpload(mediaBuffer, mime);
+    if (!catboxUrl || !catboxUrl.startsWith("http")) {
+      return reply("⚠️ Failed to upload image to Catbox server.");
+    }
 
-    let apiUrl = `https://api.zenzxz.my.id/tools/removebg?url=${encodeURIComponent(up)}`;
-    let res = await fetch(apiUrl);
+    // call removebg API
+    const apiUrl = `https://api.zenzxz.my.id/tools/removebg?url=${encodeURIComponent(catboxUrl)}`;
+    const res = await axios.get(apiUrl);
+    const json = res.data;
 
-    if (!res.ok) return m.reply("🍂 Failed to connect to the RemoveBG API!");
-
-    let json = await res.json();
     if (!json.status || !json.result?.url) {
-      return m.reply("🍂 Failed to process the image. Please try another one.");
+      return reply("🍂 Failed to process the image. Please try another one.");
     }
 
-    let buffer = Buffer.from(await (await fetch(json.result.url)).arrayBuffer());
-
-    await conn.sendFile(
-      m.chat,
-      buffer,
+    // fetch processed image
+    const resultImg = await axios.get(json.result.url, { responseType: "arraybuffer" });
+    await client.sendFile(
+      message.chat,
+      Buffer.from(resultImg.data),
       "removebg.png",
       `✨ *Background removed successfully!*\n📷 Preview: ${json.result.preview_demo}`,
-      m
+      message
     );
 
-    await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
+    await client.sendMessage(message.chat, { react: { text: '✅', key: message.key } });
 
   } catch (e) {
-    console.error(e);
-    m.reply("🍂 An error occurred while removing the background.");
+    console.error("REMOVE BG ERROR:", e);
+    reply("🍂 An error occurred while removing the background.");
   }
 });
