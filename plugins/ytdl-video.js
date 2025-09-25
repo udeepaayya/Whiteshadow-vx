@@ -13,7 +13,7 @@ function extractUrl(text = '') {
 cmd({
   pattern: 'video',
   alias: ['mp40','ytmp4'],
-  desc: 'Download YouTube video (MP4) using PrinceTech API.',
+  desc: 'Download YouTube video (MP4) using Keith API.',
   category: 'download',
   react: '📥',
   filename: __filename
@@ -37,29 +37,28 @@ async (conn, mek, m, { from, args, reply, quoted }) => {
       await reply('⏳ Fetching video info...');
     }
 
-    const api = `https://api.princetechn.com/api/download/ytmp4?apikey=prince&url=${encodeURIComponent(ytUrl)}`;
+    // 🔹 Keith API
+    const api = `https://apis-keith.vercel.app/download/ytmp4?url=${encodeURIComponent(ytUrl)}`;
     const { data } = await axios.get(api, { timeout: 30_000, headers: { 'User-Agent': 'WhiteShadow-MD/1.0' } });
 
-    if (!data || data.success !== true || !data.result?.download_url) {
+    if (!data || data.status !== true || !data.result?.url) {
       return reply('❌ Failed to fetch. Try another link or later.');
     }
 
-    const { title, thumbnail, download_url, quality } = data.result;
-    const caption = `*🎬 ${title}*\n🧩 Quality: *${quality || '—'}*\n\n➡️ *Auto-sending video...*`;
+    const { url: download_url, filename } = data.result;
 
-    // Normal image preview
-    await conn.sendMessage(from, {
-      image: { url: thumbnail },
-      caption
-    }, { quoted: m });
+    const caption = `*🎬 ${filename || 'YouTube Video'}*\n\n➡️ *Auto-sending video...*`;
+
+    // Send filename preview (no thumbnail in Keith API, so skip image)
+    await reply(caption);
 
     // Send video file
     try {
       await conn.sendMessage(from, {
         video: { url: download_url },
-        fileName: `${title.replace(/[\\/:*?"<>|]/g, '')}.mp4`,
+        fileName: filename || 'video.mp4',
         mimetype: 'video/mp4',
-        caption: `✅ Downloaded: *${title}*\n📥 POWERED BY WHITESHADOW-MD`
+        caption: `✅ Downloaded: *${filename || 'YouTube Video'}*\n📥 POWERED BY WHITESHADOW-MD`
       }, { quoted: m });
     } catch (err) {
       await reply(`⚠️ I couldn't upload the file due to size/limits.\n\n*Direct Download:* ${download_url}`);
