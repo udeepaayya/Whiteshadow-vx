@@ -1,80 +1,58 @@
-const { cmd } = require('../command');
-const axios = require('axios');
-const yts = require('yt-search');
-
-function extractUrl(text = '') {
-  if (!text) return null;
-  const urlRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[\w\-?=&%.#\/]+)|(youtube\.com\/[\w\-?=&%.#\/]+)/i;
-  const match = text.match(urlRegex);
-  if (!match) return null;
-  return match[0].startsWith('http') ? match[0] : `https://${match[0]}`;
-}
+const axios = require("axios");
+const { cmd } = require("../command");
 
 cmd({
-  pattern: 'video',
-  alias: ['mp40','ytmp4'],
-  desc: 'Download YouTube video (MP4) using Keith API.',
-  category: 'download',
-  react: '📥',
-  filename: __filename
+  pattern: "video",
+  alias: ["ytmp4", "ytvideo"],
+  desc: "Download YouTube video with auto quality & limit bypass",
+  react: "🎥",
+  category: "download",
+  filename: __filename,
 },
-async (conn, mek, m, { from, args, reply, quoted }) => {
+async (conn, m, { args }) => {
+  if (!args[0]) return m.reply("⚠️ Please provide a YouTube link!");
+
+  const url = args[0];
+  let videoData;
+
   try {
-    let provided = args.join(' ').trim() || (quoted && (quoted.text || quoted.caption)) || '';
-    let ytUrl = extractUrl(provided);
-
-    // 🔹 If not a YouTube URL → search with yt-search
-    if (!ytUrl) {
-      if (!provided) return reply('🧩 *Usage:* .video <youtube-url | search query>\n👉 Or reply to a message containing a YouTube link.');
-      const search = await yts(provided);
-      if (!search?.all?.length) return reply('❌ No results found on YouTube.');
-      ytUrl = search.all[0].url;
-      await reply(`🔎 Found: *${search.all[0].title}* \n\n⏳ Fetching video info...`);
-    } else {
-      await reply('⏳ Fetching video info...');
-    }
-
-    // 🔹 Keith API
-    const api = `https://apis-keith.vercel.app/download/ytmp4?url=${encodeURIComponent(ytUrl)}`;
-    const { data } = await axios.get(api, { timeout: 30_000, headers: { 'User-Agent': 'WhiteShadow-MD/1.0' } });
-
-    if (!data || data.status !== true || !data.result?.url) {
-      return reply('❌ Failed to fetch. Try another link or later.');
-    }
-
-    const { url: download_url, filename } = data.result;
-
-    // check size with HEAD request
-    let sizeMB = 0;
-    try {
-      const head = await axios.head(download_url, { timeout: 15000 });
-      sizeMB = parseInt(head.headers['content-length'] || '0', 10) / (1024 * 1024);
-    } catch (err) {
-      console.warn("Couldn't fetch file size:", err?.message);
-    }
-
-    const safeName = (filename || 'video').replace(/[\\/:*?"<>|]/g, '');
-
-    if (sizeMB && sizeMB > 90) {
-      // send as document if >90MB
-      await conn.sendMessage(from, {
-        document: { url: download_url },
-        fileName: safeName.endsWith('.mp4') ? safeName : `${safeName}.mp4`,
-        mimetype: 'video/mp4',
-        caption: `✅ Downloaded (Document Mode)\n🎬 *${safeName}*\n📦 Size: ~${sizeMB.toFixed(1)} MB\n\n📥 POWERED BY WHITESHADOW-MD`
-      }, { quoted: m });
-    } else {
-      // normal send as video
-      await conn.sendMessage(from, {
-        video: { url: download_url },
-        fileName: safeName.endsWith('.mp4') ? safeName : `${safeName}.mp4`,
-        mimetype: 'video/mp4',
-        caption: `✅ Downloaded: *${safeName}*\n📥 POWERED BY WHITESHADOW-MD`
-      }, { quoted: m });
-    }
-
+    // 🔹 First API
+    let res = await axios.get(`https://api.agatz.xyz/api/ytmp4?url=${url}`);
+    videoData = res.data.result;
   } catch (e) {
-    console.error('video cmd error =>', e?.message || e);
-    reply('🚫 An unexpected error occurred. Please try again.');
+    try {
+      // 🔹 Fallback API
+      let res2 = await axios.get(`https://api.nekolabs.my.id/downloader/ytmp4?url=${url}`);
+      videoData = res2.data.result;
+    } catch (err) {
+      return m.reply("❌ Failed to fetch. Try another link or later.");
+    }
+  }
+
+  if (!videoData || !videoData.download_url) return m.reply("❌ Video not found.");
+
+  let { title, size, download_url, thumbnail } = videoData;
+  let fileSizeMB = parseFloat(size);
+
+  try {
+    if (fileSizeMB <= 90) {
+      // Small file → send as video preview
+      await conn.sendMessage(m.chat, {
+        video: { url: download_url },
+        caption: `🎬 *${title}*\n📦 Size: ${size}\n\n✅ Powered by WhiteShadow-MD`,
+        thumbnail: await axios.get(thumbnail, { responseType: "arraybuffer" }).then(r => Buffer.from(r.data)),
+        mimetype: "video/mp4"
+      }, { quoted: m });
+    } else {
+      // Large file → send as document
+      await conn.sendMessage(m.chat, {
+        document: { url: download_url },
+        fileName: `${title}.mp4`,
+        mimetype: "video/mp4",
+        caption: `🎬 *${title}*\n📦 Size: ${size}\n\n⚡ Sent as Document (Limit bypass)\n✅ Powered by WhiteShadow-MD`
+      }, { quoted: m });
+    }
+  } catch (err) {
+    return m.reply("❌ Error while sending video. File may be too large.");
   }
 });
