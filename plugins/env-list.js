@@ -1,122 +1,123 @@
-// inside your env command file
-const fs = require('fs');
-const path = require('path');
-const config = require('../config');
-const { cmd } = require('../command');
+const fs = require("fs");
+const path = require("path");
+const config = require("../config");
+const { cmd } = require("../command");
 
-const envPath = path.join(__dirname, "../.env");
+const envPath = path.join(__dirname, "..", ".env");
 
-function updateEnvVariable(key, value) {
-    let env = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
-    const regex = new RegExp(`^${key}=.*`, "m");
-
-    if (regex.test(env)) env = env.replace(regex, `${key}=${value}`);
-    else env += `\n${key}=${value}`;
-
-    fs.writeFileSync(envPath, env, 'utf8');
-    require('dotenv').config({ path: envPath });
-
-    delete require.cache[require.resolve('../config')];
-    Object.assign(config, require('../config'));
+// helper to show ✅ ❌
+function check(val) {
+  return val && val.toString().toLowerCase() === "true" ? "✅" : "❌";
 }
 
-function isEnabled(value) {
-    return value && value.toString().toLowerCase() === "true";
+// read .env file
+function readEnv() {
+  if (!fs.existsSync(envPath)) return {};
+  let content = fs.readFileSync(envPath, "utf-8").split("\n");
+  let env = {};
+  content.forEach(line => {
+    if (line && line.includes("=")) {
+      let [key, ...val] = line.split("=");
+      env[key.trim()] = val.join("=").trim();
+    }
+  });
+  return env;
+}
+
+// write .env file
+function writeEnv(newEnv) {
+  let content = Object.entries(newEnv)
+    .map(([k, v]) => `${k}=${v}`)
+    .join("\n");
+  fs.writeFileSync(envPath, content, "utf-8");
 }
 
 cmd({
-    pattern: "env",
-    alias: ["config", "settings"],
-    desc: "Bot config control panel via reply menu (ENV based)",
-    category: "owner",
-    react: "⚙️",
-    filename: __filename
-}, async (conn, mek, m, { from, reply, isOwner, isCreator }) => {
-    if (!isOwner && !isCreator) return reply("🚫 *Owner Only Command!*");
+  pattern: "env",
+  alias: ["config", "settings"],
+  desc: "Show config & toggle ON/OFF (Owner Only, Permanent)",
+  category: "system",
+  react: "⚙️",
+  filename: __filename,
+}, 
+async (conn, mek, m, { from, reply, isCreator }) => {
+  if (!isCreator) return reply("🚫 *Owner Only!*");
 
-    const menu = `┏─〔 *Whiteshadow ENV PANEL* 〕──⊷
-┇๏ *1. ᴀᴜᴛᴏ ғᴇᴀᴛᴜʀᴇs*
-┇๏ 1.2 - ᴀᴜᴛᴏ_ʀᴇᴀᴄᴛ (${isEnabled(config.AUTO_REACT) ? "✅" : "❌"})
-┗──────────────⊷
-┏──────────────⊷
-┇๏ *2. sᴇᴄᴜʀɪᴛʏ*
-┇๏ 2.1 - ᴀɴᴛɪ_ʟɪɴᴋ (${isEnabled(config.ANTI_LINK) ? "✅" : "❌"})
-┇๏ 2.2 - ᴀɴᴛɪ_ʙᴀᴅ (${isEnabled(config.ANTI_BAD) ? "✅" : "❌"})
-┇๏ 2.3 - ᴅᴇʟᴇᴛᴇ_ʟɪɴᴋs (${isEnabled(config.DELETE_LINKS) ? "✅" : "❌"})
-┗──────────────⊷
-┏──────────────⊷
-┇๏ *3. sᴛᴀᴛᴜs sʏsᴛᴇᴍ*
-┇๏ 3.1 - ᴀᴜᴛᴏ_sᴛᴀᴛᴜs_sᴇᴇɴ (${isEnabled(config.AUTO_STATUS_SEEN) ? "✅" : "❌"})
-┇๏ 3.2 - ᴀᴜᴛᴏ_sᴛᴀᴛᴜs_ʀᴇᴘʟʏ (${isEnabled(config.AUTO_STATUS_REPLY) ? "✅" : "❌"})
-┇๏ 3.3 - ᴀᴜᴛᴏ_sᴛᴀᴛᴜs_ʀᴇᴀᴄᴛ (${isEnabled(config.AUTO_STATUS_REACT) ? "✅" : "❌"})
-┗──────────────⊷
-┏──────────────⊷
-┇๏ *4. ᴄᴏʀᴇ*
-┇๏ 4.1 - ᴀʟᴡᴀʏs_ᴏɴʟɪɴᴇ (${isEnabled(config.ALWAYS_ONLINE) ? "✅" : "❌"})
-┇๏ 4.2 - ʀᴇᴀᴅ_ᴍᴇssᴀɢᴇ (${isEnabled(config.READ_MESSAGE) ? "✅" : "❌"})
-┇๏ 4.3 - ʀᴇᴀᴅ_ᴄᴍᴅ (${isEnabled(config.READ_CMD) ? "✅" : "❌"})
-┇๏ 4.4 - ᴘᴜʙʟɪᴄ_ᴍᴏᴅᴇ (${isEnabled(config.PUBLIC_MODE) ? "✅" : "❌"})
-┗──────────────⊷
-┏──────────────⊷
-┇๏ *5. ᴛʏᴘɪɴɢ/ʀᴇᴄᴏʀᴅɪɴɢ*
-┇๏ 5.1 - ᴀᴜᴛᴏ_ᴛʏᴘɪɴɢ (${isEnabled(config.AUTO_TYPING) ? "✅" : "❌"})
-┇๏ 5.2 - ᴀᴜᴛᴏ_ʀᴇᴄᴏʀᴅɪɴɢ (${isEnabled(config.AUTO_RECORDING) ? "✅" : "❌"})
-┗──────────────⊷
+  let env = readEnv();
 
-_ʀᴇᴘʟʏ ᴛᴏ ᴛᴏɢɢʟᴇ ᴏɴ/ᴏғғ_`;
+  let text = `
+╭───〔 ⚙️ ${config.BOT_NAME} SETTINGS 〕───❏
 
-    const fakeVCard = {
-        key: {
-            fromMe: false,
-            participant: "0@s.whatsapp.net",
-            remoteJid: "status@broadcast"
-        },
-        message: {
-            contactMessage: {
-                displayName: "Whiteshadow Ai",
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:;;;\nFN:Whiteshadow Ai\nitem1.TEL;waid=${config.OWNER_NUMBER}:+${config.OWNER_NUMBER}\nitem1.X-ABLabel:Owner\nEND:VCARD`
-            }
-        }
-    };
+├─ ⚡ CORE
+│ 1. PUBLIC_MODE   : ${check(env.PUBLIC_MODE)}
+│ 2. ALWAYS_ONLINE : ${check(env.ALWAYS_ONLINE)}
+│ 3. READ_MESSAGE  : ${check(env.READ_MESSAGE)}
+│ 4. READ_CMD      : ${check(env.READ_CMD)}
 
-    const sent = await conn.sendMessage(from, {
-        image: { url: config.MENU_IMAGE_URL || "https://files.catbox.moe/tbdd5d.jpg" },
-        caption: menu,
-        contextInfo: { mentionedJid: [m.sender], forwardingScore: 999, isForwarded: true }
-    }, { quoted: fakeVCard });
+├─ 🤖 AUTO
+│ 5. AUTO_REPLY    : ${check(env.AUTO_REPLY)}
+│ 6. AUTO_REACT    : ${check(env.AUTO_REACT)}
+│ 7. CUSTOM_REACT  : ${check(env.CUSTOM_REACT)}
+│ 8. AUTO_STICKER  : ${check(env.AUTO_STICKER)}
+│ 9. AUTO_VOICE    : ${check(env.AUTO_VOICE)}
 
-    const messageID = sent.key.id;
+├─ 📢 STATUS
+│ 10. AUTO_STATUS_SEEN   : ${check(env.AUTO_STATUS_SEEN)}
+│ 11. AUTO_STATUS_REPLY  : ${check(env.AUTO_STATUS_REPLY)}
+│ 12. AUTO_STATUS_REACT  : ${check(env.AUTO_STATUS_REACT)}
 
-    const map = {
-        "1.2": "AUTO_REACT",
-        "2.1": "ANTI_LINK", "2.2": "ANTI_BAD", "2.3": "DELETE_LINKS",
-        "3.1": "AUTO_STATUS_SEEN", "3.2": "AUTO_STATUS_REPLY", "3.3": "AUTO_STATUS_REACT",
-        "4.1": "ALWAYS_ONLINE", "4.2": "READ_MESSAGE", "4.3": "READ_CMD", "4.4": "PUBLIC_MODE",
-        "5.1": "AUTO_TYPING", "5.2": "AUTO_RECORDING"
-    };
+├─ 🛡 SECURITY
+│ 13. ANTI_LINK    : ${check(env.ANTI_LINK)}
+│ 14. ANTI_BAD     : ${check(env.ANTI_BAD)}
+│ 15. ANTI_VV      : ${check(env.ANTI_VV)}
+│ 16. DELETE_LINKS : ${check(env.DELETE_LINKS)}
 
-    const toggleSetting = (key) => {
-        const current = isEnabled(config[key]);
-        updateEnvVariable(key, current ? "false" : "true");
-        return `✅ *${key}* ɪs ɴᴏᴡ sᴇᴛ ᴛᴏ: *${!current ? "ON" : "OFF"}*`;
-    };
+├─ ⏳ MISC
+│ 17. AUTO_TYPING  : ${check(env.AUTO_TYPING)}
+│ 18. AUTO_RECORDING : ${check(env.AUTO_RECORDING)}
 
-    const handler = async ({ messages }) => {
-        const msg = messages[0];
-        if (!msg?.message) return;
+╰───〔 Reply with a number (1-18) to toggle 〕
+`;
 
-        const quoted = msg.message.extendedTextMessage?.contextInfo;
-        if (!quoted || quoted.stanzaId !== messageID) return;
+  await conn.sendMessage(from, { text }, { quoted: mek });
+});
 
-        const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
-        const key = map[text.trim()];
-        if (!key) return conn.sendMessage(from, { text: "Reply with a valid option like 1.2, 2.1, etc." }, { quoted: msg });
+// toggle system with permanent save
+cmd({
+  pattern: ".*",
+  dontAddCommandList: true
+}, async (conn, mek, m, { from, body, reply, isCreator }) => {
+  if (!isCreator) return;
 
-        const res = toggleSetting(key);
-        await conn.sendMessage(from, { text: res }, { quoted: fakeVCard });
-        conn.ev.off("messages.upsert", handler);
-    };
+  let choice = body.trim();
+  const map = {
+    "1": "PUBLIC_MODE",
+    "2": "ALWAYS_ONLINE",
+    "3": "READ_MESSAGE",
+    "4": "READ_CMD",
+    "5": "AUTO_REPLY",
+    "6": "AUTO_REACT",
+    "7": "CUSTOM_REACT",
+    "8": "AUTO_STICKER",
+    "9": "AUTO_VOICE",
+    "10": "AUTO_STATUS_SEEN",
+    "11": "AUTO_STATUS_REPLY",
+    "12": "AUTO_STATUS_REACT",
+    "13": "ANTI_LINK",
+    "14": "ANTI_BAD",
+    "15": "ANTI_VV",
+    "16": "DELETE_LINKS",
+    "17": "AUTO_TYPING",
+    "18": "AUTO_RECORDING"
+  };
 
-    conn.ev.on("messages.upsert", handler);
-    setTimeout(() => conn.ev.off("messages.upsert", handler), 60_000);
+  if (map[choice]) {
+    let env = readEnv();
+    let key = map[choice];
+    let current = env[key] ? env[key].toLowerCase() : "false";
+    let newVal = current === "true" ? "false" : "true";
+    env[key] = newVal;
+    writeEnv(env);
+    return reply(`✅ *${key}* is now *${newVal.toUpperCase()}* (saved to .env)`);
+  }
 });
