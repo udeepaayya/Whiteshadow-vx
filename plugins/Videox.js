@@ -12,7 +12,7 @@ function extractUrl(text = '') {
 cmd({
   pattern: 'ytmp4x',
   alias: ['yt','ytshort','ytshorts'],
-  desc: 'Download YouTube video (MP4) using ZenzzXD API with preview card.',
+  desc: 'Download YouTube video (MP4) using ZenzzXD API (document type).',
   category: 'download',
   react: '📥',
   filename: __filename
@@ -36,41 +36,37 @@ async (conn, mek, m, { from, args, reply, quoted }) => {
     }
 
     const { title, thumbnail, download_url, format, duration } = data;
-    const caption = `*🎬 ${title}*\n🧩 Quality: *${format || '—'}*\n⏱ Duration: *${duration || '—'} sec*\n\n➡️ *Auto-sending video...*`;
+    const safeTitle = title.replace(/[\\/:*?"<>|]/g, '');
+    const caption = `*🎬 ${title}*\n🧩 Quality: *${format || '—'}*\n⏱ Duration: *${duration || '—'} sec*\n\n➡️ *Auto-sending file...*`;
 
-    // Send preview card first
-    try {
-      await conn.sendMessage(from, {
-        image: { url: thumbnail },
-        caption,
-        contextInfo: {
-          externalAdReply: {
-            title: 'YT MP4 • WhiteShadow-MD',
-            body: 'Tap to open in browser',
-            thumbnailUrl: thumbnail,
-            mediaType: 1,
-            renderLargerThumbnail: true,
-            showAdAttribution: true,
-            sourceUrl: ytUrl
-          }
+    // Preview card
+    await conn.sendMessage(from, {
+      image: { url: thumbnail },
+      caption,
+      contextInfo: {
+        externalAdReply: {
+          title: 'YT MP4 • WhiteShadow-MD',
+          body: 'Tap to open in browser',
+          thumbnailUrl: thumbnail,
+          mediaType: 1,
+          renderLargerThumbnail: true,
+          showAdAttribution: true,
+          sourceUrl: ytUrl
         }
-      }, { quoted: m });
-    } catch (e) {}
+      }
+    }, { quoted: m });
 
-    // Download as buffer and send video
-    try {
-      const file = await axios.get(download_url, { responseType: 'arraybuffer' });
-      await conn.sendMessage(from, {
-        video: file.data,
-        fileName: `${title.replace(/[\\/:*?"<>|]/g, '')}.mp4`,
-        mimetype: 'video/mp4',
-        caption: `✅ Downloaded: *${title}*\n📥 POWERED BY WHITESHADOW-MD`
-      }, { quoted: m });
-    } catch (err) {
-      await reply(`⚠️ File too large for WhatsApp.\n\n*Direct Download:* ${download_url}`);
-    }
+    // Download & send as document
+    const file = await axios.get(download_url, { responseType: 'arraybuffer' });
+    await conn.sendMessage(from, {
+      document: file.data,
+      fileName: `${safeTitle}.mp4`,
+      mimetype: 'video/mp4',
+      caption: `✅ Downloaded: *${title}*\n📥 POWERED BY WHITESHADOW-MD`
+    }, { quoted: m });
+
   } catch (e) {
     console.error('ytmp4x error =>', e?.message || e);
-    reply('🚫 An unexpected error occurred. Please try again.');
+    reply('🚫 Unexpected error. Try again later.');
   }
 });
