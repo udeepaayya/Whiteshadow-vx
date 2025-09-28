@@ -12,7 +12,7 @@ function extractUrl(text = '') {
 cmd({
   pattern: 'ytmp4x',
   alias: ['yt','ytshort','ytshorts'],
-  desc: 'Download YouTube video (MP4) using PrinceTech API with preview card.',
+  desc: 'Download YouTube video (MP4) using ZenzzXD API with preview card.',
   category: 'download',
   react: '📥',
   filename: __filename
@@ -26,17 +26,17 @@ async (conn, mek, m, { from, args, reply, quoted }) => {
       return reply('🧩 *Usage:* .ytmp4x <youtube-url>\n👉 Or reply to a message containing a YouTube link.');
     }
 
-    const api = `https://api.princetechn.com/api/download/ytmp4?apikey=prince&url=${encodeURIComponent(ytUrl)}`;
+    const api = `https://api.zenzxz.my.id/downloader/ytmp4v2?url=${encodeURIComponent(ytUrl)}`;
     await reply('⏳ Fetching video info...');
 
     const { data } = await axios.get(api, { timeout: 30_000, headers: { 'User-Agent': 'WhiteShadow-MD/1.0' } });
 
-    if (!data || data.success !== true || !data.result?.download_url) {
+    if (!data || data.status !== true || !data.download_url) {
       return reply('❌ Failed to fetch. Try another link or later.');
     }
 
-    const { title, thumbnail, download_url, quality } = data.result;
-    const caption = `*🎬 ${title}*\n🧩 Quality: *${quality || '—'}*\n\n➡️ *Auto-sending video...*`;
+    const { title, thumbnail, download_url, format, duration } = data;
+    const caption = `*🎬 ${title}*\n🧩 Quality: *${format || '—'}*\n⏱ Duration: *${duration || '—'} sec*\n\n➡️ *Auto-sending video...*`;
 
     try {
       await conn.sendMessage(from, {
