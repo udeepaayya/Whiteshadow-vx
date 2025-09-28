@@ -1,74 +1,80 @@
 const { cmd } = require('../command');
-const axios = require('axios');
+const fetch = require('node-fetch');
+const yts = require('yt-search');
 
 function extractUrl(text = '') {
-  if (!text) return null;
-  const urlRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[\w\-?=&%.#\/]+)|(youtube\.com\/[\w\-?=&%.#\/]+)/i;
-  const match = text.match(urlRegex);
-  if (!match) return null;
-  return match[0].startsWith('http') ? match[0] : `https://${match[0]}`;
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[\w\-?=&%.#\/]+)|(youtube\.com\/[\w\-?=&%.#\/]+)/i;
+    const match = text.match(urlRegex);
+    if (!match) return null;
+    return match[0].startsWith('http') ? match[0] : `https://${match[0]}`;
 }
 
 cmd({
-  pattern: 'ytmp4x',
-  alias: ['yt','ytshort','ytshorts'],
-  desc: 'Download YouTube video (MP4) using ZenzzXD API (document type).',
-  category: 'download',
-  react: '📥',
-  filename: __filename
-},
-async (conn, mek, m, { from, args, reply, quoted }) => {
-  try {
-    const provided = args.join(' ').trim() || (quoted && (quoted.text || quoted.caption)) || '';
-    const ytUrl = extractUrl(provided);
+    pattern: 'ytmp4s',
+    alias: ['yt','ytvideo','st','yt','ytshort','ytshorts'],
+    desc: 'Download YouTube video in SD (720p) quality (document type) using Gtech API.',
+    category: 'download',
+    react: '📥',
+    filename: __filename
+}, async (conn, m, mek, { from, args, reply, quoted }) => {
+    try {
+        const provided = args.join(' ').trim() || (quoted && (quoted.text || quoted.caption)) || '';
+        if (!provided) return reply('🧩 *Usage:* .ytmp4sd <youtube-url>\n👉 Or reply to a message containing a YouTube link.');
 
-    if (!ytUrl) {
-      return reply('🧩 *Usage:* .ytmp4x <youtube-url>\n👉 Or reply to a message containing a YouTube link.');
-    }
+        await reply('⏳ Searching video...');
 
-    const api = `https://api.zenzxz.my.id/downloader/ytmp4v2?url=${encodeURIComponent(ytUrl)}`;
-    await reply('⏳ Fetching video info...');
+        let videoUrl = provided;
 
-    const { data } = await axios.get(api, { timeout: 30_000, headers: { 'User-Agent': 'WhiteShadow-MD/1.0' } });
-
-    if (!data || data.status !== true || !data.download_url) {
-      return reply('❌ Failed to fetch. Try another link or later.');
-    }
-
-    const { title, thumbnail, download_url, format, duration } = data;
-    const safeTitle = title.replace(/[\\/:*?"<>|]/g, '');
-    const caption = `*🎬 ${title}*\n🧩 Quality: *${format || '—'}*\n⏱ Duration: *${duration || '—'} sec*\n\n➡️ *Auto-sending file...*`;
-
-    // Send preview card first
-    await conn.sendMessage(from, {
-      image: { url: thumbnail },
-      caption,
-      contextInfo: {
-        externalAdReply: {
-          title: 'YT MP4 • WhiteShadow-MD',
-          body: 'Tap to open in browser',
-          thumbnailUrl: thumbnail,
-          mediaType: 1,
-          renderLargerThumbnail: true,
-          showAdAttribution: true,
-          sourceUrl: ytUrl
+        // If not a direct YouTube URL, search
+        if (!provided.match(/(youtube\.com|youtu\.be)/)) {
+            const search = await yts(provided);
+            if (!search.videos.length) return reply('❌ No results found!');
+            videoUrl = search.videos[0].url;
         }
-      }
-    }, { quoted: m });
 
-    // Download & send as document (buffer)
-    const res = await axios.get(download_url, { responseType: 'arraybuffer' });
-    const buffer = Buffer.from(res.data);
+        // SD (720p) API
+        const apiUrl = `https://gtech-api-xtp1.onrender.com/api/video/yt?apikey=APIKEY&url=${encodeURIComponent(videoUrl)}`;
+        const res = await fetch(apiUrl);
+        const data = await res.json();
 
-    await conn.sendMessage(from, {
-      document: buffer,
-      fileName: `${safeTitle}.mp4`,
-      mimetype: 'video/mp4',
-      caption: `✅ Downloaded: *${title}*\n📥 POWERED BY WHITESHADOW-MD`
-    }, { quoted: m });
+        if (!data.status || !data.result?.media?.video_url) {
+            return reply('❌ SD video not available!');
+        }
 
-  } catch (e) {
-    console.error('ytmp4x error =>', e?.message || e);
-    reply('🚫 Unexpected error. Try again later.');
-  }
+        const media = data.result.media;
+        const safeTitle = media.title.replace(/[\\/:*?"<>|]/g, '');
+
+        // Preview card
+        await conn.sendMessage(from, {
+            image: { url: media.thumbnail },
+            caption: `*🎬 ${media.title}*\n🧩 Quality: *SD 720p*\n⏱ Duration: *${media.duration || '—'} sec*\n\n➡️ *Auto-sending file...*`,
+            contextInfo: {
+                externalAdReply: {
+                    title: 'YT MP4 SD • WhiteShadow-MD',
+                    body: 'Tap to open in browser',
+                    thumbnailUrl: media.thumbnail,
+                    mediaType: 1,
+                    renderLargerThumbnail: true,
+                    showAdAttribution: true,
+                    sourceUrl: videoUrl
+                }
+            }
+        }, { quoted: m });
+
+        // Download & send as document
+        const fileRes = await fetch(media.video_url);
+        const fileBuffer = await fileRes.arrayBuffer();
+
+        await conn.sendMessage(from, {
+            document: Buffer.from(fileBuffer),
+            fileName: `${safeTitle}.mp4`,
+            mimetype: 'video/mp4',
+            caption: `✅ Downloaded SD (720p): *${media.title}*\n📥 POWERED BY WHITESHADOW-MD`
+        }, { quoted: m });
+
+    } catch (err) {
+        console.error('ytmp4sd error =>', err);
+        reply('🚫 Unexpected error. Try again later.');
+    }
 });
