@@ -38,6 +38,7 @@ async (conn, mek, m, { from, args, reply, quoted }) => {
     const { title, thumbnail, download_url, format, duration } = data;
     const caption = `*🎬 ${title}*\n🧩 Quality: *${format || '—'}*\n⏱ Duration: *${duration || '—'} sec*\n\n➡️ *Auto-sending video...*`;
 
+    // Send preview card first
     try {
       await conn.sendMessage(from, {
         image: { url: thumbnail },
@@ -50,21 +51,23 @@ async (conn, mek, m, { from, args, reply, quoted }) => {
             mediaType: 1,
             renderLargerThumbnail: true,
             showAdAttribution: true,
-            sourceUrl: download_url
+            sourceUrl: ytUrl
           }
         }
       }, { quoted: m });
     } catch (e) {}
 
+    // Download as buffer and send video
     try {
+      const file = await axios.get(download_url, { responseType: 'arraybuffer' });
       await conn.sendMessage(from, {
-        video: { url: download_url },
+        video: file.data,
         fileName: `${title.replace(/[\\/:*?"<>|]/g, '')}.mp4`,
         mimetype: 'video/mp4',
         caption: `✅ Downloaded: *${title}*\n📥 POWERED BY WHITESHADOW-MD`
       }, { quoted: m });
     } catch (err) {
-      await reply(`⚠️ I couldn't upload the file due to size/limits.\n\n*Direct Download:* ${download_url}`);
+      await reply(`⚠️ File too large for WhatsApp.\n\n*Direct Download:* ${download_url}`);
     }
   } catch (e) {
     console.error('ytmp4x error =>', e?.message || e);
