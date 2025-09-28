@@ -39,7 +39,7 @@ async (conn, mek, m, { from, args, reply, quoted }) => {
     const safeTitle = title.replace(/[\\/:*?"<>|]/g, '');
     const caption = `*🎬 ${title}*\n🧩 Quality: *${format || '—'}*\n⏱ Duration: *${duration || '—'} sec*\n\n➡️ *Auto-sending file...*`;
 
-    // Preview card
+    // Send preview card first
     await conn.sendMessage(from, {
       image: { url: thumbnail },
       caption,
@@ -56,10 +56,12 @@ async (conn, mek, m, { from, args, reply, quoted }) => {
       }
     }, { quoted: m });
 
-    // Download & send as document
-    const file = await axios.get(download_url, { responseType: 'arraybuffer' });
+    // Download & send as document (buffer)
+    const res = await axios.get(download_url, { responseType: 'arraybuffer' });
+    const buffer = Buffer.from(res.data);
+
     await conn.sendMessage(from, {
-      document: file.data,
+      document: buffer,
       fileName: `${safeTitle}.mp4`,
       mimetype: 'video/mp4',
       caption: `✅ Downloaded: *${title}*\n📥 POWERED BY WHITESHADOW-MD`
