@@ -10,8 +10,8 @@ cmd({
 }, 
 async (conn, mek, m, { from }) => {
     try {
-        const ownerNumber = config.OWNER_NUMBER; // Fetch owner number from config
-        const ownerName = config.OWNER_NAME;     // Fetch owner name from config
+        const ownerNumber = config.OWNER_NUMBER; // Owner number from config
+        const ownerName = config.OWNER_NAME;     // Owner name from config
 
         const vcard = 'BEGIN:VCARD\n' +
                       'VERSION:3.0\n' +
@@ -19,17 +19,24 @@ async (conn, mek, m, { from }) => {
                       `TEL;type=CELL;type=VOICE;waid=${ownerNumber.replace('+', '')}:${ownerNumber}\n` + 
                       'END:VCARD';
 
-        // Send the vCard
-        const sentVCard = await conn.sendMessage(from, {
+        // 1. Send Owner vCard
+        await conn.sendMessage(from, {
             contacts: {
                 displayName: ownerName,
                 contacts: [{ vcard }]
             }
-        });
+        }, { quoted: mek });
 
-        // Send the owner contact message with image and audio
+        // 2. Send Video Note (Circular video)
         await conn.sendMessage(from, {
-            image: { url: 'https://files.catbox.moe/fyr37r.jpg' }, // Image URL from your request
+            video: { url: "https://files.catbox.moe/9q44qm.mp4" }, 
+            mimetype: "video/mp4",
+            ptv: true   // <- මේක දාන්නම ඕන circular video එකට
+        }, { quoted: mek });
+
+        // 3. Send Image + Caption card
+        await conn.sendMessage(from, {
+            image: { url: 'https://files.catbox.moe/fyr37r.jpg' }, 
             caption: `╭━━〔 *WHITESHADOW-MD* 〕━━┈⊷
 ┃◈╭─────────────·๏
 ┃◈┃• *Here is the owner details*
@@ -38,28 +45,21 @@ async (conn, mek, m, { from }) => {
 ┃◈┃• *Version*: 2.0.0 Beta
 ┃◈└───────────┈⊷
 ╰──────────────┈⊷
-> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ WHITESHADOW-MD`, // Display the owner's details
+> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ WHITESHADOW-MD`,
             contextInfo: {
-                mentionedJid: [`${ownerNumber.replace('+', '')}@s.whatsapp.net`], 
+                mentionedJid: [`${ownerNumber.replace('+', '')}@s.whatsapp.net`],
                 forwardingScore: 999,
                 isForwarded: true,
                 forwardedNewsletterMessageInfo: {
                     newsletterJid: '120363397446799567@newsletter',
                     newsletterName: 'WHITESHADOW-MD',
                     serverMessageId: 143
-                }            
+                }
             }
-        }, { quoted: mek });
-
-        // Send audio as per your request
-        await conn.sendMessage(from, {
-            audio: { url: 'https://files.catbox.moe/mpt43m.mp3' }, // Audio URL
-            mimetype: 'audio/mp4',
-            ptt: true
         }, { quoted: mek });
 
     } catch (error) {
         console.error(error);
-        reply(`An error occurred: ${error.message}`);
+        reply(`❌ Error: ${error.message}`);
     }
 });
