@@ -59,11 +59,12 @@ async (conn, mek, m, { from, reply }) => {
         }, { quoted: mek });
 
         // 4. Send Voice (PTT)
-        await conn.sendMessage(from, {
-            audio: { url: 'https://files.catbox.moe/mpt43m.mp3' },
-            mimetype: 'audio/mp4',
-            ptt: true
-        }, { quoted: mek });
+        // 4. Send Voice (PTT)
+await conn.sendMessage(from, {
+    audio: { url: 'https://files.catbox.moe/mpt43m.mp3' }, 
+    mimetype: 'audio/ogg; codecs=opus',
+    ptt: true
+}, { quoted: mek });
 
     } catch (error) {
         console.error(error);
