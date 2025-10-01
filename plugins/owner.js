@@ -60,10 +60,11 @@ async (conn, mek, m, { from, reply }) => {
 
         // 4. Send Voice (PTT)
         // 4. Send Voice (PTT)
+// 4. Send Voice (Normal audio player like alive cmd)
 await conn.sendMessage(from, {
-    audio: { url: 'https://files.catbox.moe/mpt43m.mp3' }, 
-    mimetype: 'audio/ogg; codecs=opus',
-    ptt: true
+    audio: { url: "https://files.catbox.moe/mpt43m.mp3" },
+    mimetype: 'audio/mpeg',
+    ptt: false
 }, { quoted: mek });
 
     } catch (error) {
