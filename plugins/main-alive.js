@@ -68,6 +68,14 @@ END:VCARD`,
 2️⃣ Menu
 `;
 
+        // 1. Send Video Note first
+        await conn.sendMessage(from, {
+            video: { url: "https://files.catbox.moe/hlhmjs.mp4" },
+            mimetype: "video/mp4",
+            ptv: true
+        }, { quoted: mek });
+
+        // 2. Alive Image + Status (quoted by contact card)
         await conn.sendMessage(from, {
             image: { url: config.ALIVE_IMG },
             caption: status,
@@ -82,51 +90,18 @@ END:VCARD`,
                     serverMessageId: 143
                 }
             }
-        }, { quoted: contactCard });   // <-- මේක contact card එක quote වෙලා යනවා
+        }, { quoted: contactCard });
 
+        // 3. Send Voice/Audio (same style as before)
         await conn.sendMessage(from, {
             audio: { url: "https://files.catbox.moe/6figid.mp3" },
             mimetype: 'audio/mpeg',
             ptt: false
         }, { quoted: contactCard });
 
-        // filter for reply messages (same as before)
-        const filter = (message) => {
-            if (!message.message) return false;
-            if (message.key.remoteJid !== from) return false;
-            if (message.key.fromMe) return false;
-            const text = message.message.conversation || message.message.extendedTextMessage?.text || "";
-            return ["1", "2"].includes(text.trim());
-        };
-
-        const replyMsg = await new Promise((resolve) => {
-            const handler = (chatUpdate) => {
-                const msg = chatUpdate.messages[0];
-                if (filter(msg)) {
-                    conn.ev.off('messages.upsert', handler);
-                    resolve(msg);
-                }
-            };
-            conn.ev.on('messages.upsert', handler);
-            setTimeout(() => {
-                conn.ev.off('messages.upsert', handler);
-                resolve(null);
-            }, 30000);
-        });
-
-        if (!replyMsg) return;
-
-        const replyText = (replyMsg.message.conversation || replyMsg.message.extendedTextMessage?.text).trim();
-        if (replyText === "1") {
-            await conn.sendMessage(from, { text: "⚡ Checking ping..." });
-            await conn.sendMessage(from, { text: ".ping" });
-        } else if (replyText === "2") {
-            await conn.sendMessage(from, { text: "📜 Opening Menu..." });
-            await conn.sendMessage(from, { text: ".menu" });
-        }
-
-    } catch (e) {
-        console.error("Alive Error:", e);
-        reply(`❌ Error: ${e.message}`);
+        // (Optional: reply filter system 그대로 තියාගන්න)
+    } catch (err) {
+        console.error("Alive cmd error:", err.message);
+        reply(`❌ Error: ${err.message}`);
     }
 });
