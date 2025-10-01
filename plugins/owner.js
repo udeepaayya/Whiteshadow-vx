@@ -8,10 +8,10 @@ cmd({
     category: "main",
     filename: __filename
 }, 
-async (conn, mek, m, { from }) => {
+async (conn, mek, m, { from, reply }) => {
     try {
-        const ownerNumber = config.OWNER_NUMBER; // Owner number from config
-        const ownerName = config.OWNER_NAME;     // Owner name from config
+        const ownerNumber = config.OWNER_NUMBER;
+        const ownerName = config.OWNER_NAME;
 
         const vcard = 'BEGIN:VCARD\n' +
                       'VERSION:3.0\n' +
@@ -19,19 +19,19 @@ async (conn, mek, m, { from }) => {
                       `TEL;type=CELL;type=VOICE;waid=${ownerNumber.replace('+', '')}:${ownerNumber}\n` + 
                       'END:VCARD';
 
-        // 1. Send Owner vCard
+        // 1. Send Video Note (Circular video)
+        await conn.sendMessage(from, {
+            video: { url: "https://files.catbox.moe/9q44qm.mp4" }, 
+            mimetype: "video/mp4",
+            ptv: true
+        }, { quoted: mek });
+
+        // 2. Send Owner vCard
         await conn.sendMessage(from, {
             contacts: {
                 displayName: ownerName,
                 contacts: [{ vcard }]
             }
-        }, { quoted: mek });
-
-        // 2. Send Video Note (Circular video)
-        await conn.sendMessage(from, {
-            video: { url: "https://files.catbox.moe/9q44qm.mp4" }, 
-            mimetype: "video/mp4",
-            ptv: true   // <- මේක දාන්නම ඕන circular video එකට
         }, { quoted: mek });
 
         // 3. Send Image + Caption card
@@ -56,6 +56,13 @@ async (conn, mek, m, { from }) => {
                     serverMessageId: 143
                 }
             }
+        }, { quoted: mek });
+
+        // 4. Send Voice (PTT)
+        await conn.sendMessage(from, {
+            audio: { url: 'https://files.catbox.moe/mpt43m.mp3' },
+            mimetype: 'audio/mp4',
+            ptt: true
         }, { quoted: mek });
 
     } catch (error) {
