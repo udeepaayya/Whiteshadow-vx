@@ -18,16 +18,20 @@ cmd({
 
         await reply(`🔍 Searching images for "${query}"...`);
 
-        const url = `https://apis.davidcyriltech.my.id/googleimage?query=${encodeURIComponent(query)}`;
+        // Dexter API
+        const url = `https://api.id.dexter.it.com/search/google/image?q=${encodeURIComponent(query)}`;
         const response = await axios.get(url);
 
         // Validate response
-        if (!response.data?.success || !response.data.results?.length) {
+        if (
+            !response.data?.success || 
+            !response.data.result?.result?.search_data?.length
+        ) {
             return reply("❌ No images found. Try different keywords");
         }
 
-        const results = response.data.results;
-        // Get 5 random images
+        const results = response.data.result.result.search_data;
+        // Random 5 images
         const selectedImages = results
             .sort(() => 0.5 - Math.random())
             .slice(0, 5);
@@ -41,7 +45,7 @@ cmd({
                 },
                 { quoted: mek }
             );
-            // Add delay between sends to avoid rate limiting
+            // Delay to avoid spam
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
