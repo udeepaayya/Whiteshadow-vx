@@ -2,60 +2,53 @@ const { cmd } = require('../command');
 const axios = require('axios');
 const yts = require('yt-search');
 
-function extractUrl(text = '') {
-  if (!text) return null;
-  const urlRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[\w\-?=&%.#\/]+)|(youtube\.com\/[\w\-?=&%.#\/]+)/i;
-  const match = text.match(urlRegex);
-  if (!match) return null;
-  return match[0].startsWith('http') ? match[0] : `https://${match[0]}`;
-}
-
 cmd({
-  pattern: 'video',
-  alias: ['mp40', 'ytmp4', 'vd'],
-  desc: 'Download YouTube video as document to bypass WhatsApp size limits.',
-  category: 'download',
-  react: '📁',
-  filename: __filename
+    pattern: "video",
+    alias: ["ytvideo", "ytmp4"],
+    use: ".video <name or link>",
+    react: "🎬",
+    desc: "Search YouTube video and download first result",
+    category: "downloader",
+    filename: __filename
 },
-async (conn, mek, m, { from, args, reply, quoted }) => {
-  try {
-    let provided = args.join(' ').trim() || (quoted && (quoted.text || quoted.caption)) || '';
-    let ytUrl = extractUrl(provided);
 
-    if (!ytUrl) {
-      if (!provided) return reply('🧩 *Usage:* .video <youtube-url | search query>\n👉 Or reply to a message containing a YouTube link.');
+async(conn, mek, m, { from, q, reply }) => {
+try {
+    if (!q) return reply('*Please give me a video name or YouTube link!*');
 
-      const search = await yts(provided);
-      if (!search?.all?.length) return reply('❌ No results found on YouTube.');
-
-      ytUrl = search.all[0].url;
-      await reply(`🔎 Found: *${search.all[0].title}* \n\n⏳ Fetching video info...`);
+    let url;
+    if (q.includes("youtube.com") || q.includes("youtu.be")) {
+        // If direct YouTube link
+        url = q;
     } else {
-      await reply('⏳ Fetching video info...');
+        // If keyword search -> get first result
+        let search = await yts(q);
+        if (!search || !search.videos || search.videos.length < 1) 
+            return reply("*No results found!*");
+        url = search.videos[0].url;
     }
 
-    // 🔹 Zenzx API
-    const api = `https://api.zenzxz.my.id/downloader/ytmp4?url=${encodeURIComponent(ytUrl)}`;
-    const { data } = await axios.get(api, { timeout: 30_000, headers: { 'User-Agent': 'WhiteShadow-MD/1.0' } });
+    // Call API for download
+    let api = `https://api.zenzxz.my.id/downloader/ytmp4?url=${encodeURIComponent(url)}`;
+    let { data } = await axios.get(api);
 
-    if (!data || data.status !== true || !data.download_url) {
-      return reply('❌ Failed to fetch. Try another link or later.');
-    }
+    if (!data || !data.status) return reply("*Failed to fetch video!*");
 
-    const { title, thumbnail, download_url, format, duration } = data;
-    const caption = `*🎬 ${title}*\n🧩 Quality: *${format || '—'}*\n⏱ Duration: *${duration || '—'} sec*\n\n➡️ Sent as document to bypass WhatsApp limits.\n*Direct Download:* ${download_url}`;
+    let caption = `🎬 *${data.title}*\n⏱ Duration: ${data.duration}s\n📹 Quality: ${data.format}\n\n🔗 ${data.download_url}`;
 
-    // 🔹 Send as document
-    await conn.sendMessage(from, {
-      document: { url: download_url },
-      fileName: `${title.replace(/[\\/:*?"<>|]/g, '')}.mp4`,
-      mimetype: 'application/octet-stream',
-      caption
-    }, { quoted: m });
+    await conn.sendMessage(from, { 
+        image: { url: data.thumbnail }, 
+        caption: caption 
+    }, { quoted: mek });
 
-  } catch (e) {
-    console.error('video cmd error =>', e?.message || e);
-    reply('🚫 An unexpected error occurred. Please try again.');
-  }
+    // Send video file directly
+    await conn.sendMessage(from, { 
+        video: { url: data.download_url }, 
+        caption: `▶️ ${data.title}`
+    }, { quoted: mek });
+
+} catch (e) {
+    console.log(e);
+    reply("*Error fetching video!*");
+}
 });
