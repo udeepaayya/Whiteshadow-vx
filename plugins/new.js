@@ -8,15 +8,15 @@ import fs from "fs";
 import path from "path";
 import { cmd } from "../command.js";
 
-const pluginDataFile = path.join("./plugins/pluginData.json");
+const pluginFolder = path.join("./plugins");
+const pluginDataFile = path.join(pluginFolder, "pluginData.json");
 
-function savePluginData(data) {
-    fs.writeFileSync(pluginDataFile, JSON.stringify(data, null, 2));
+function ensurePluginData() {
+    if (!fs.existsSync(pluginDataFile)) fs.writeFileSync(pluginDataFile, "[]");
 }
 
 function getNewPlugins() {
-    const pluginFolder = path.join("./plugins");
-    if (!fs.existsSync(pluginDataFile)) fs.writeFileSync(pluginDataFile, "[]");
+    ensurePluginData();
 
     const oldData = JSON.parse(fs.readFileSync(pluginDataFile, "utf-8") || "[]");
 
@@ -34,7 +34,7 @@ function getNewPlugins() {
         const stats = fs.statSync(path.join(pluginFolder, file));
         return { name: file, mtime: stats.mtimeMs };
     });
-    savePluginData(currentData);
+    fs.writeFileSync(pluginDataFile, JSON.stringify(currentData, null, 2));
 
     return newPlugins;
 }
