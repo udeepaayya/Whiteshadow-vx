@@ -11,34 +11,44 @@ import { cmd } from "../command.js";
 const pluginFolder = path.join("./plugins");
 const pluginDataFile = path.join(pluginFolder, "pluginData.json");
 
+// Ensure pluginData.json exists
 function ensurePluginData() {
-    if (!fs.existsSync(pluginDataFile)) fs.writeFileSync(pluginDataFile, "[]");
+    if (!fs.existsSync(pluginDataFile)) {
+        fs.writeFileSync(pluginDataFile, "[]");
+    }
 }
 
+// Get new / updated plugins
 function getNewPlugins() {
     ensurePluginData();
 
     const oldData = JSON.parse(fs.readFileSync(pluginDataFile, "utf-8") || "[]");
 
-    const newPlugins = fs.readdirSync(pluginFolder).map(file => {
-        const filePath = path.join(pluginFolder, file);
-        const stats = fs.statSync(filePath);
-        const old = oldData.find(p => p.name === file);
-        if (!old) return { name: file, type: "new" };
-        if (stats.mtimeMs > old.mtime) return { name: file, type: "updated" };
-        return null;
-    }).filter(Boolean);
+    const newPlugins = fs.readdirSync(pluginFolder)
+        .filter(f => f.endsWith(".js") && f !== "pluginData.json") // ignore json file
+        .map(file => {
+            const filePath = path.join(pluginFolder, file);
+            const stats = fs.statSync(filePath);
+            const old = oldData.find(p => p.name === file);
+            if (!old) return { name: file, type: "new" };
+            if (stats.mtimeMs > old.mtime) return { name: file, type: "updated" };
+            return null;
+        }).filter(Boolean);
 
     // Save current state
-    const currentData = fs.readdirSync(pluginFolder).map(file => {
-        const stats = fs.statSync(path.join(pluginFolder, file));
-        return { name: file, mtime: stats.mtimeMs };
-    });
+    const currentData = fs.readdirSync(pluginFolder)
+        .filter(f => f.endsWith(".js") && f !== "pluginData.json")
+        .map(file => {
+            const stats = fs.statSync(path.join(pluginFolder, file));
+            return { name: file, mtime: stats.mtimeMs };
+        });
+
     fs.writeFileSync(pluginDataFile, JSON.stringify(currentData, null, 2));
 
     return newPlugins;
 }
 
+// Command
 cmd({
     pattern: "new",
     desc: "Show newly added or updated plugins",
