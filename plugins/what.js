@@ -11,6 +11,9 @@ const FormData = require('form-data');
 const fs = require('fs');
 const path = require('path');
 
+// 🔐 Fix SSL certificate issue
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
 async function uploadToUguu(filePath) {
     const form = new FormData();
     form.append('files[]', fs.createReadStream(filePath));
