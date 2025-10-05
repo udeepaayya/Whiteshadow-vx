@@ -13,7 +13,7 @@ cmd({
   if (!text) return reply("🧠 *Please enter a message to ask AI.*\nExample: .ai3 What is cyber security?");
 
   try {
-    let res = await axios.get(`https://whiteshadow-thz2.onrender.com/ai?question=${encodeURIComponent(text)}`);
+    let res = await axios.get(`https://whiteshadow-thz2.onrender.com/ai/gpt-5-mini?query=${encodeURIComponent(text)}`);
     if (res.data && res.data.status && res.data.answer) {
       return reply(res.data.answer);
     } else {
