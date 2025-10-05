@@ -1,37 +1,27 @@
-/**
- * Plugin: AI3 (WHITESHADOW AI Tester)
- * Author: Chamod Nimsara
- * Bot: WHITESHADOW-MD
- */
-
-import axios from "axios";
-import { cmd } from "../command.js";
+const { cmd } = require('../command');
+const axios = require('axios');
 
 cmd({
   pattern: "ai3",
-  alias: ["ai-test", "chat3"],
-  desc: "Test WHITESHADOW AI response",
+  alias: ["whiteshadowai", "chat3"],
+  desc: "Chat with WHITESHADOW AI (Gemini API backend)",
   category: "ai",
+  use: ".ai3 <question>",
   react: "🤖",
-  use: ".ai3 <message>",
   filename: __filename
 }, async (m, { text, reply }) => {
+  if (!text) return reply("🧠 *Please enter a message to ask AI.*\nExample: .ai3 What is cyber security?");
+
   try {
-    if (!text) return reply("💬 *Please type a message to ask WHITESHADOW AI.*\n\nExample: .ai3 Hello!");
-
-    // Call your deployed API (Gemini 2.0 flash)
-    const api = `https://whiteshadow-thz2.onrender.com/ai/gpt-5-mini?query=${encodeURIComponent(text)}`;
-
-    const { data } = await axios.get(api);
-
-    if (data.status && data.answer) {
-      await reply(`💭 *WHITESHADOW AI says:*\n\n${data.answer}`);
+    let res = await axios.get(`https://whiteshadow-thz2.onrender.com/ai?question=${encodeURIComponent(text)}`);
+    if (res.data && res.data.status && res.data.answer) {
+      return reply(res.data.answer);
     } else {
-      await reply(`⚠️ *No valid response from AI.*`);
+      console.error(res.data);
+      return reply("⚠️ AI response not received properly.");
     }
-
-  } catch (e) {
-    console.error("AI3 Error:", e.message);
-    await reply("❌ *Error connecting to WHITESHADOW AI server.*");
+  } catch (err) {
+    console.error(err);
+    return reply("❌ *Error connecting to WHITESHADOW AI server.*");
   }
 });
