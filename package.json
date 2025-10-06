@@ -63,6 +63,6 @@
     "@mrnima/facebook-downloader":"1.0.0",
     "mrnima-moviedl":"1.0.0",
     "openai": "^4.7.0",
-  "@google/genai": "^0.7.0"
+  "@google/genai":"1.22.0"
   }
 }
