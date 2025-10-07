@@ -4,15 +4,18 @@ const fs = require("fs");
 const FormData = require("form-data");
 
 cmd({
-  pattern: "funfilter",
-  alias: ["rc", "naughtyai"],
-  desc: "Just a fun image filter (joke only, owner only)",
+  pattern: "rc",
+  desc: "Owner-only fun image filter (for jokes only)",
   category: "fun",
   react: "🪄",
 }, async (message, client) => {
   try {
+    console.log("✅ Funfilter triggered!");
+
     const ownerNumber = "94704896880";
-    const sender = message.sender.replace(/[^0-9]/g, "");
+    const sender = (message.sender || message.key.participant || "").replace(/[^0-9]/g, "");
+    console.log("Sender:", sender);
+
     if (sender !== ownerNumber) {
       return message.reply("⚠️ *This command is for the owner only!*");
     }
@@ -23,13 +26,14 @@ cmd({
       return message.reply("📸 *Please reply to an image!*");
     }
 
+    console.log("Downloading image...");
     const buffer = await client.downloadMediaMessage(qmsg);
     if (!buffer) return message.reply("⚠️ *Failed to download image!*");
 
     const filePath = "./temp_image.jpg";
     fs.writeFileSync(filePath, buffer);
-    console.log("Image downloaded!");
 
+    console.log("Uploading to Catbox...");
     const form = new FormData();
     form.append("reqtype", "fileupload");
     form.append("fileToUpload", fs.createReadStream(filePath));
@@ -39,16 +43,11 @@ cmd({
     });
 
     const imageUrl = catbox.data.trim();
-    if (!imageUrl.startsWith("https://files.catbox.moe")) {
-      throw new Error("Upload failed: " + imageUrl);
-    }
-
-    console.log("Uploaded to Catbox:", imageUrl);
+    console.log("Catbox URL:", imageUrl);
 
     const api = `https://api.nekolabs.my.id/tools/convert/remove-clothes?imageUrl=${encodeURIComponent(imageUrl)}`;
     const { data } = await axios.get(api);
-
-    if (!data.status) throw new Error("API request failed");
+    console.log("Nekolabs Response:", data);
 
     await client.sendMessage(message.chat, {
       image: { url: data.result },
@@ -56,9 +55,9 @@ cmd({
     });
 
     fs.unlinkSync(filePath);
-    console.log("Done ✅");
+    console.log("✅ Done!");
   } catch (e) {
-    console.error(e);
+    console.error("❌ Error in funfilter:", e);
     message.reply("⚠️ *Error applying fun filter!*");
   }
 });
