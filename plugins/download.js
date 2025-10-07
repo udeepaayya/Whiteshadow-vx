@@ -6,6 +6,7 @@ const { igdl } = require("ruhend-scraper");
 const axios = require("axios");
 const { cmd, commands } = require('../command');
 
+
 cmd({
   pattern: "ig",
   alias: ["insta", "instagram"],
@@ -16,23 +17,24 @@ cmd({
 }, async (conn, m, store, { from, q, reply }) => {
   try {
     if (!q || !q.startsWith("http")) {
-      return reply("❌ Please provide a valid Instagram link.");
+      return reply("❌ Please provide a valid Instagram link.\n\n*Example:* .ig https://www.instagram.com/reel/xxxxxxxx/");
     }
 
     await conn.sendMessage(from, {
       react: { text: "⏳", key: m.key }
     });
 
-    const response = await axios.get(`https://api.zenzxz.my.id/downloader/instagram?url=${encodeURIComponent(q)}`);
+    const apiUrl = `https://api.nekolabs.my.id/downloader/instagram?url=${encodeURIComponent(q)}`;
+    const response = await axios.get(apiUrl);
     const data = response.data;
 
-    if (!data || !data.status || !data.result || (!data.result.videos || data.result.videos.length === 0)) {
-      return reply("⚠️ Failed to fetch Instagram video. Please check the link and try again.");
+    if (!data.status || !data.result || !data.result.downloadUrl) {
+      return reply("⚠️ Couldn't fetch the Instagram video. Please check the link and try again.");
     }
 
-    // First video URL
-    const videoUrl = data.result.videos[0];
-    const caption = `📥 *Instagram Video Downloaded Successfully!*\n\n👤 *Name:* ${data.result.name}\n🔗 *@${data.result.username}*`;
+    const result = data.result;
+    const videoUrl = result.downloadUrl[0];
+    const caption = `📥 *Instagram Video Downloaded Successfully!*\n\n👤 *User:* @${result.metadata.username}\n❤️ *Likes:* ${result.metadata.like}\n💬 *Comments:* ${result.metadata.comment}\n📝 *Caption:* ${result.metadata.caption || "No caption"}\n\n> 🔰 Powered by *WhiteShadow-MD*`;
 
     await conn.sendMessage(from, {
       video: { url: videoUrl },
@@ -41,8 +43,8 @@ cmd({
     }, { quoted: m });
 
   } catch (error) {
-    console.error("Error:", error);
-    reply("❌ An error occurred while processing your request. Please try again.");
+    console.error("IG Download Error:", error);
+    reply("❌ Error downloading Instagram video. Please try again later.");
   }
 });
 
