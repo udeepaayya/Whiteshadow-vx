@@ -1,57 +1,61 @@
-// nanoBananaCatbox.js
-import { cmd } from "../command.js";
-import axios from "axios";
-import FormData from "form-data";
-import fs from "fs";
+const axios = require("axios");
+const FormData = require("form-data");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { cmd } = require("../command");
 
 cmd({
   pattern: "nanobanana",
-  alias: ["nbanana", "clothcolor"],
-  desc: "Upload image to catbox and change cloth color using Nano-Banana AI",
-  type: "plugin",
+  alias: ["nb", "nano", "banana"], // 🔹 Aliases added
   react: "🎨",
-  async handler(m, { args, quoted, client }) {
-    try {
-      // 1️⃣ Check if user replied to an image
-      const media = quoted?.media;
-      if (!media) return m.reply("කරුණාකර image එකක් reply කරන්න.");
+  desc: "AI image edit with custom prompt (Anyone can use)",
+  use: ".nanobanana [prompt] (reply to image)",
+  category: "fun",
+  filename: __filename
+}, async (client, message, args, { reply }) => {
+  try {
+    const quoted = message.quoted ? message.quoted : message;
+    const mime = (quoted.msg || quoted).mimetype || "";
+    if (!mime || !mime.startsWith("image/")) return reply("🖼️ Please reply to an image!");
 
-      // 2️⃣ Download the image
-      const buffer = await client.downloadMedia(quoted); // WHITESHADOW-MD download method
-      const tempFile = `./temp_${Date.now()}.jpg`;
-      fs.writeFileSync(tempFile, buffer);
+    // Download image
+    const buffer = await quoted.download();
+    const tempFilePath = path.join(os.tmpdir(), `upload_${Date.now()}.jpg`);
+    fs.writeFileSync(tempFilePath, buffer);
 
-      // 3️⃣ Upload image to catbox
-      const form = new FormData();
-      form.append("reqtype", "fileupload");
-      form.append("fileToUpload", fs.createReadStream(tempFile));
+    // Upload to Catbox
+    const form = new FormData();
+    form.append("fileToUpload", fs.createReadStream(tempFilePath));
+    form.append("reqtype", "fileupload");
 
-      const catboxRes = await axios.post("https://catbox.moe/user/api.php", form, {
-        headers: form.getHeaders(),
+    const uploadRes = await axios.post("https://catbox.moe/user/api.php", form, {
+      headers: form.getHeaders(),
+    });
+
+    const imgUrl = uploadRes.data.trim();
+
+    // Get user-defined prompt
+    const prompt = args.join(" ") || "Change the colour of cloth black";
+
+    // Send to Nano-Banana API
+    const apiUrl = `https://api.nekolabs.my.id/ai/gemini/nano-banana?prompt=${encodeURIComponent(prompt)}&imageUrl=${encodeURIComponent(imgUrl)}`;
+    const apiRes = await axios.get(apiUrl);
+
+    // Clean up temp file
+    fs.unlinkSync(tempFilePath);
+
+    if (apiRes.data && apiRes.data.status && apiRes.data.result) {
+      await client.sendMessage(message.chat, {
+        image: { url: apiRes.data.result },
+        caption: `✨ *AI Edited Image*\n> Prompt: ${prompt}\n> WHITESHADOW-MD ⚡`
       });
-
-      const imageUrl = catboxRes.data; // Catbox returns URL directly
-
-      // 4️⃣ Get user prompt
-      const prompt = args.join(" ") || "Change the colour of cloth black";
-
-      // 5️⃣ Send request to Nano-Banana API
-      const apiUrl = `https://api.nekolabs.my.id/ai/gemini/nano-banana?prompt=${encodeURIComponent(prompt)}&imageUrl=${encodeURIComponent(imageUrl)}`;
-      const response = await axios.get(apiUrl);
-      const resultUrl = response.data.result;
-
-      if (resultUrl) {
-        m.reply("🖤 Nano-Banana AI result:");
-        m.sendImage(resultUrl, "nanobanana.png", m.id);
-      } else {
-        m.reply("⚠️ API returned empty response. Try again later.");
-      }
-
-      // Delete temp file
-      fs.unlinkSync(tempFile);
-    } catch (err) {
-      console.log(err);
-      m.reply("❌ Error occurred while processing the image.");
+    } else {
+      reply("⚠️ API didn’t return a valid result!");
     }
-  },
+
+  } catch (err) {
+    console.error(err);
+    reply("❌ Error: " + err.message);
+  }
 });
