@@ -4,50 +4,51 @@ const fs = require("fs");
 const FormData = require("form-data");
 
 cmd({
-  pattern: "rc",
+  pattern: "rcf",
   desc: "Owner-only fun image filter (for jokes only)",
   category: "fun",
   react: "🪄",
 }, async (message, client) => {
   try {
-    console.log("✅ Funfilter triggered!");
-
-    const ownerNumber = "94704896880";
+    const owner = "94704896880";
     const sender = (message.sender || message.key.participant || "").replace(/[^0-9]/g, "");
-    console.log("Sender:", sender);
 
-    if (sender !== ownerNumber) {
+    if (sender !== owner) {
       return message.reply("⚠️ *This command is for the owner only!*");
     }
 
     const qmsg = message.quoted ? message.quoted : message;
     const mime = qmsg.mimetype || "";
-    if (!/image/.test(mime)) {
-      return message.reply("📸 *Please reply to an image!*");
-    }
+    if (!/image/.test(mime)) return message.reply("📸 *Please reply to an image!*");
 
-    console.log("Downloading image...");
+    await message.reply("🪄 *Uploading image...*");
+
     const buffer = await client.downloadMediaMessage(qmsg);
     if (!buffer) return message.reply("⚠️ *Failed to download image!*");
 
     const filePath = "./temp_image.jpg";
     fs.writeFileSync(filePath, buffer);
 
-    console.log("Uploading to Catbox...");
+    // Upload to Catbox
     const form = new FormData();
     form.append("reqtype", "fileupload");
     form.append("fileToUpload", fs.createReadStream(filePath));
 
-    const catbox = await axios.post("https://catbox.moe/user/api.php", form, {
+    const uploadRes = await axios.post("https://catbox.moe/user/api.php", form, {
       headers: form.getHeaders(),
     });
 
-    const imageUrl = catbox.data.trim();
-    console.log("Catbox URL:", imageUrl);
+    const imageUrl = uploadRes.data.trim();
+    if (!imageUrl.startsWith("https://files.catbox.moe"))
+      return message.reply("❌ Upload failed!\n" + imageUrl);
 
+    await message.reply("✅ *Uploaded!* Sending to API...");
+
+    // Nekolabs API
     const api = `https://api.nekolabs.my.id/tools/convert/remove-clothes?imageUrl=${encodeURIComponent(imageUrl)}`;
     const { data } = await axios.get(api);
-    console.log("Nekolabs Response:", data);
+
+    if (!data.status) return message.reply("❌ API request failed!");
 
     await client.sendMessage(message.chat, {
       image: { url: data.result },
@@ -55,9 +56,8 @@ cmd({
     });
 
     fs.unlinkSync(filePath);
-    console.log("✅ Done!");
+    await message.reply("✅ *Done!* Filter complete 🎉");
   } catch (e) {
-    console.error("❌ Error in funfilter:", e);
-    message.reply("⚠️ *Error applying fun filter!*");
+    await message.reply("⚠️ *Error:* " + e.message);
   }
 });
