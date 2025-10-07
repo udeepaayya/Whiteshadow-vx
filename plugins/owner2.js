@@ -8,20 +8,24 @@ const { cmd } = require("../command");
 cmd({
   pattern: "airc",
   react: "🪄",
-  desc: "Apply AI effect to image (fun version)",
+  desc: "Owner-only AI fun image filter",
   use: ".aiimage [reply to image]",
   category: "fun",
   filename: __filename
 }, async (client, message, args, { reply }) => {
   try {
+    const OWNER = "94704896880"; // Only this number can use
+    const sender = (message.sender || message.key.participant || "").replace(/[^0-9]/g, "");
+    if (sender !== OWNER) return reply("⚠️ Only the bot owner can use this command!");
+
     const quoted = message.quoted ? message.quoted : message;
     const mime = (quoted.msg || quoted).mimetype || "";
-    if (!mime || !mime.startsWith("image/")) return reply("🖼️ *Please reply to an image!*");
+    if (!mime || !mime.startsWith("image/")) return reply("🖼️ Please reply to an image!");
 
     // Download image
     const buffer = await quoted.download();
 
-    // Save buffer as temporary file
+    // Save buffer as temp file
     const tempFilePath = path.join(os.tmpdir(), `upload_${Date.now()}.jpg`);
     fs.writeFileSync(tempFilePath, buffer);
 
@@ -36,7 +40,7 @@ cmd({
 
     const imgUrl = uploadRes.data.trim();
 
-    // Pass that URL to your API (fun or test API)
+    // Send to API
     const apiUrl = `https://api.nekolabs.my.id/tools/convert/remove-clothes?imageUrl=${encodeURIComponent(imgUrl)}`;
     const apiRes = await axios.get(apiUrl);
 
@@ -46,7 +50,7 @@ cmd({
     if (apiRes.data && apiRes.data.status && apiRes.data.result) {
       await client.sendMessage(message.chat, {
         image: { url: apiRes.data.result },
-        caption: `✨ *AI Fun Image Processed!*\n\n> Uploaded by WHITESHADOW-MD ⚡`
+        caption: "✨ *AI Fun Image Processed!* (Owner Only)\n> WHITESHADOW-MD ⚡"
       });
     } else {
       reply("⚠️ API didn’t return a valid result!");
