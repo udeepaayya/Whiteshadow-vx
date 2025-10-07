@@ -11,23 +11,25 @@ cmd({
   react: "🪄",
 }, async (message, client) => {
   try {
-    // ✅ Owner number check
     const ownerNumber = "94704896880";
     const sender = message.sender.replace(/[^0-9]/g, "");
     if (sender !== ownerNumber) {
       return message.reply("⚠️ *This command is for the owner only!*");
     }
 
-    const mime = (message.quoted ? message.quoted.mimetype : message.mimetype) || "";
+    const qmsg = message.quoted ? message.quoted : message;
+    const mime = qmsg.mimetype || "";
     if (!/image/.test(mime)) {
       return message.reply("📸 *Please reply to an image!*");
     }
 
-    const buffer = await message.download();
+    const buffer = await client.downloadMediaMessage(qmsg);
+    if (!buffer) return message.reply("⚠️ *Failed to download image!*");
+
     const filePath = "./temp_image.jpg";
     fs.writeFileSync(filePath, buffer);
+    console.log("Image downloaded!");
 
-    // 1️⃣ Upload image to Catbox
     const form = new FormData();
     form.append("reqtype", "fileupload");
     form.append("fileToUpload", fs.createReadStream(filePath));
@@ -38,10 +40,11 @@ cmd({
 
     const imageUrl = catbox.data.trim();
     if (!imageUrl.startsWith("https://files.catbox.moe")) {
-      throw new Error("Upload failed");
+      throw new Error("Upload failed: " + imageUrl);
     }
 
-    // 2️⃣ Send to Nekolabs API
+    console.log("Uploaded to Catbox:", imageUrl);
+
     const api = `https://api.nekolabs.my.id/tools/convert/remove-clothes?imageUrl=${encodeURIComponent(imageUrl)}`;
     const { data } = await axios.get(api);
 
@@ -53,6 +56,7 @@ cmd({
     });
 
     fs.unlinkSync(filePath);
+    console.log("Done ✅");
   } catch (e) {
     console.error(e);
     message.reply("⚠️ *Error applying fun filter!*");
