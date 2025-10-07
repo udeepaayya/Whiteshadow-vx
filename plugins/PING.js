@@ -7,7 +7,7 @@ const { cmd } = require("../command");
 
 cmd({
   pattern: "nanobanana",
-  alias: ["nb", "nano", "banana"], // 🔹 Aliases added
+  alias: ["nb", "nano", "banana"], // Aliases
   react: "🎨",
   desc: "AI image edit with custom prompt (Anyone can use)",
   use: ".nanobanana [prompt] (reply to image)",
@@ -35,8 +35,15 @@ cmd({
 
     const imgUrl = uploadRes.data.trim();
 
-    // Get user-defined prompt
-    const prompt = args.join(" ") || "Change the colour of cloth black";
+    // Safe user-defined prompt
+    let prompt = "";
+    if (Array.isArray(args)) {
+      prompt = args.join(" ");
+    } else if (typeof args === "string") {
+      prompt = args;
+    } else {
+      prompt = "Blur this"; // Default prompt
+    }
 
     // Send to Nano-Banana API
     const apiUrl = `https://api.nekolabs.my.id/ai/gemini/nano-banana?prompt=${encodeURIComponent(prompt)}&imageUrl=${encodeURIComponent(imgUrl)}`;
