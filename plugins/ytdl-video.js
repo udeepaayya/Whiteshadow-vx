@@ -1,61 +1,59 @@
-const { cmd } = require('../command');
-const axios = require('axios');
-const yts = require('yt-search');
+const { cmd } = require("../command");
+const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 
 cmd({
     pattern: "video",
-    alias: ["ytvideo", "ytmp4"],
-    use: ".video <name or link>",
+    alias: ["ytmp4"],
     react: "🎬",
-    desc: "Search YouTube video and download first result",
-    category: "downloader",
-    filename: __filename
-},
+    desc: "Download YouTube video as file",
+    async handler(m, { sock, text }) {
+        if (!text) return m.reply("❌ Please provide a YouTube URL!");
 
-async(conn, mek, m, { from, q, reply }) => {
-try {
-    if (!q) return reply('*Please give me a video name or YouTube link!*');
+        try {
+            const api = `https://api.yupra.my.id/api/downloader/ytmp4?url=${encodeURIComponent(text)}`;
+            const res = await axios.get(api);
+            const data = res.data;
 
-    let url;
-    if (q.includes("youtube.com") || q.includes("youtu.be")) {
-        url = q.trim();
-    } else {
-        let search = await yts(q);
-        if (!search || !search.videos || search.videos.length < 1) 
-            return reply("*No results found!*");
-        url = search.videos[0].url;
-    }
+            if (!data.result || data.status !== 200)
+                return m.reply("❌ Video not found!");
 
-    // API URL
-    let api = `https://api.zenzxz.my.id/downloader/ytmp4?url=${encodeURIComponent(url)}`;
-    console.log("YT API URL:", api);
+            const video = data.result.formats[0]; // Default 240p
+            const title = data.result.title;
+            const videoUrl = video.url;
 
-    let { data } = await axios.get(api).catch(err => {
-        console.log("API ERROR:", err.response ? err.response.data : err.message);
-        return {};
-    });
+            const tempFile = path.join(__dirname, "../temp/video.mp4");
+            const writer = fs.createWriteStream(tempFile);
 
-    if (!data || !data.status) {
-        console.log("API RESPONSE:", data);
-        return reply("*❌ Failed to fetch video!*");
-    }
+            const response = await axios({
+                url: videoUrl,
+                method: "GET",
+                responseType: "stream",
+            });
 
-    let caption = `🎬 *${data.title}*\n⏱ Duration: ${data.duration}s\n📹 Quality: ${data.format}\n\n🔗 ${data.download_url}`;
+            response.data.pipe(writer);
 
-    // Send thumbnail + details
-    await conn.sendMessage(from, { 
-        image: { url: data.thumbnail }, 
-        caption: caption 
-    }, { quoted: mek });
+            writer.on("finish", async () => {
+                await sock.sendMessage(
+                    m.chat, 
+                    {
+                        video: { url: tempFile },
+                        caption: `🎬 *${title}*\n💾 Quality: ${video.qualityLabel}\n⚡ Powered by WhiteShadow-MD`,
+                    },
+                    { quoted: m }
+                );
+                fs.unlinkSync(tempFile);
+            });
 
-    // Send video directly
-    await conn.sendMessage(from, { 
-        video: { url: data.download_url }, 
-        caption: `▶️ ${data.title}`
-    }, { quoted: mek });
+            writer.on("error", (err) => {
+                console.error(err);
+                m.reply("❌ Download failed!");
+            });
 
-} catch (e) {
-    console.log("PLUGIN ERROR:", e);
-    reply("*⚠️ Error fetching video!*");
-}
+        } catch (e) {
+            console.error(e);
+            m.reply("❌ Error fetching video!");
+        }
+    },
 });
