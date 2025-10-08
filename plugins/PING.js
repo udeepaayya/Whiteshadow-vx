@@ -21,7 +21,7 @@ cmd({
   react: "🎨",
   use: "<prompt>",
   filename: __filename
-}, async (client, message, args, { reply }) => {
+}, async (client, message, args, { reply, text }) => {
   try {
     const q = message.quoted ? message.quoted : message;
     const mime = (q.msg || q).mimetype || q.mediaType || "";
@@ -30,12 +30,18 @@ cmd({
       return await reply(`⚠️ *Please reply to an image with a prompt!*\n\nExample:\n.nanobanana make it anime style`);
     }
 
-    const text = args.join(" ");
-    if (!text) {
+    // ✅ Fix: get prompt from text or args
+    const prompt = typeof text === "string" && text.trim().length > 0 
+      ? text.trim() 
+      : Array.isArray(args) 
+        ? args.join(" ") 
+        : "";
+
+    if (!prompt) {
       return await reply(`⚠️ *Please provide a prompt!*\n\nExample:\n.nanobanana make it anime style`);
     }
 
-    if (text.length > 500) {
+    if (prompt.length > 500) {
       return await reply(`❌ Prompt too long! Maximum 500 characters allowed.`);
     }
 
@@ -70,7 +76,7 @@ cmd({
     await client.sendMessage(message.chat, { text: "🎨 Image uploaded! Processing with AI...", edit: processing.key });
 
     // Call NanoBanana API
-    const apiUrl = `https://api.platform.web.id/nano-banana?imageUrl=${encodeURIComponent(imageUrl)}&prompt=${encodeURIComponent(text)}`;
+    const apiUrl = `https://api.platform.web.id/nano-banana?imageUrl=${encodeURIComponent(imageUrl)}&prompt=${encodeURIComponent(prompt)}`;
     const response = await axios.get(apiUrl, { timeout: 60000 });
     const json = response.data;
 
@@ -84,7 +90,7 @@ cmd({
 
     await client.sendMessage(message.chat, {
       image: { url: resultUrl },
-      caption: `✨ *Nano-Banana AI Result*\n\n*Prompt:* ${text}\n*Requested by:* @${message.sender.split("@")[0]}`,
+      caption: `✨ *Nano-Banana AI Result*\n\n*Prompt:* ${prompt}\n*Requested by:* @${message.sender.split("@")[0]}`,
       mentions: [message.sender]
     }, { quoted: message });
 
