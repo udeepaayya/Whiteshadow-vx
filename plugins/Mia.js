@@ -1,72 +1,68 @@
 const { cmd } = require('../command');
 const axios = require('axios');
+const yts = require('yt-search');
 
 cmd({
-  pattern: "සින්දු",
-  alias: ["ගීත", "ytmp3#"],
-  react: "🎶",
-  desc: "Search & Download YouTube songs as MP3",
+  pattern: "song",
+  alias: ["mp3", "play"],
+  desc: "Download or search YouTube songs in MP3 format",
   category: "download",
-  use: ".song <name or YouTube link>",
-}, async (conn, mek, m, { text, reply }) => {
+  react: "🎧",
+  use: ".song <YouTube URL or Name>",
+}, async (conn, mek, m, { q, reply }) => {
   try {
-    if (!text) return reply("⚠️ *Please enter a song name or YouTube link!* 🎵");
+    if (!q) return reply("❌ Please provide a YouTube link or song name!");
 
-    let ytLink;
+    let url = q;
+    // If not YouTube URL, search it
+    if (!q.includes("youtube.com") && !q.includes("youtu.be")) {
+      reply("🔍 Searching YouTube...");
+      const search = await yts(q);
+      if (!search || !search.videos || !search.videos.length)
+        return reply("❌ No results found on YouTube!");
 
-    // 🔍 If it's a link, use it directly — else search
-    if (text.includes("youtube.com") || text.includes("youtu.be")) {
-      ytLink = text;
-    } else {
-      const searchAPI = `https://api.id.dexter.it.com/search/youtube?q=${encodeURIComponent(text)}`;
-      const searchRes = await axios.get(searchAPI);
-
-      if (!searchRes.data.status || searchRes.data.result.length === 0)
-        return reply("❌ *No matching song found!* 😔");
-
-      ytLink = searchRes.data.result[0].link;
+      url = search.videos[0].url; // first result link
     }
 
-    // 🎵 Download song
-    const dlAPI = `https://apis-starlights-team.koyeb.app/starlight/youtube-mp3?url=${encodeURIComponent(ytLink)}&format=mp3`;
-    const dlRes = await axios.get(dlAPI);
-    const data = dlRes.data;
+    const res = await axios.get(
+      `https://apis-starlights-team.koyeb.app/starlight/youtube-mp3?url=${encodeURIComponent(url)}&format=mp3`
+    );
 
-    if (!data || !data.dl_url)
-      return reply("🚫 *Failed to get download link!*");
+    const data = res.data;
+    if (!data || !data.dl_url) {
+      return reply("⚠️ *Something went wrong while downloading your song!* 😢");
+    }
 
-    // 💿 Stylish but simple caption
     const caption = `
-──────────────────────────────
-🎵 *Title:* ${data.title}
-🎤 *Artist:* ${data.author}
-💽 *Quality:* ${data.quality}
-📺 *YouTube:* ${data.url}
-──────────────────────────────
-💠 *WhiteShadow-MD Music Downloader*
-🎧 *Enjoy your vibes!*
-──────────────────────────────
-`.trim();
+╭─────❖『 *🎵 WhiteShadow-MD* 』❖─────╮
+┃  🎶 *Title:* ${data.title}
+┃  👤 *Artist:* ${data.author}
+┃  📡 *Quality:* ${data.quality}
+┃  📺 *URL:* ${data.url}
+╰──────────────────────────────╯
+`;
 
-    // 🖼️ Send thumbnail + caption
-    await conn.sendMessage(m.chat, {
-      image: { url: data.thumbnail },
-      caption,
-    });
-
-    // 🎶 Send MP3 file cleanly (no ad style)
     await conn.sendMessage(
-      m.chat,
+      mek.chat,
+      {
+        image: { url: data.thumbnail },
+        caption: caption,
+      },
+      { quoted: m }
+    );
+
+    await conn.sendMessage(
+      mek.chat,
       {
         audio: { url: data.dl_url },
         mimetype: "audio/mpeg",
         fileName: `${data.title}.mp3`,
       },
-      { quoted: mek }
+      { quoted: m }
     );
 
-  } catch (err) {
-    console.error(err);
+  } catch (e) {
+    console.error(e);
     reply("⚠️ *Something went wrong while downloading your song!* 😢");
   }
 });
