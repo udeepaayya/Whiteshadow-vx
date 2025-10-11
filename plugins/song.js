@@ -1,6 +1,5 @@
 const { cmd } = require('../command')
 const fetch = require('node-fetch')
-const yts = require('yt-search')
 
 cmd({
   pattern: "song",
@@ -14,28 +13,27 @@ cmd({
   try {
     if (!q) return reply("⚠️ Please provide a song name or YouTube link.");
 
-    // 🔹 Call Nekolabs API (directly supports search query or URL)
+    // 🔹 API Call
     const apiUrl = `https://api.nekolabs.my.id/downloader/youtube/play/v1?q=${encodeURIComponent(q)}`;
     const res = await fetch(apiUrl);
     const data = await res.json();
 
-    if (!data?.status || !data?.result?.downloadUrl) {
+    // 🔹 Validate response
+    if (!data?.success || !data?.result?.downloadUrl) {
       return reply("❌ Song not found or API error. Try again later.");
     }
 
     const meta = data.result.metadata;
     const dlUrl = data.result.downloadUrl;
 
-    // 🔹 Thumbnail buffer
-    let buffer;
+    // 🔹 Try to fetch thumbnail
+    let buffer = null;
     try {
       const thumbRes = await fetch(meta.cover);
       buffer = Buffer.from(await thumbRes.arrayBuffer());
-    } catch {
-      buffer = null;
-    }
+    } catch {}
 
-    // 🔹 Caption card with extra info
+    // 🔹 Caption design
     const caption = `
 ╔═══════════════
 🎶 *Now Playing*
@@ -49,13 +47,13 @@ cmd({
 ╚═══════════════
 `;
 
-    // 🔹 Send info card
+    // 🔹 Send thumbnail & details
     await conn.sendMessage(from, {
       image: buffer,
       caption
     }, { quoted: mek });
 
-    // 🔹 Send audio file
+    // 🔹 Send audio
     await conn.sendMessage(from, {
       audio: { url: dlUrl },
       mimetype: "audio/mpeg",
