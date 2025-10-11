@@ -1,6 +1,8 @@
 const { cmd } = require('../command');
 const config = require('../config');
 const fetch = require('node-fetch');
+const https = require('https');
+const yts = require('yt-search');
 
 function extractYouTubeID(url) {
     const regex = /(?:youtube\.com\/(?:.*v=|.*\/)|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/;
@@ -20,13 +22,10 @@ cmd({
     try {
         if (!q) return await reply("❌ Please provide a YouTube URL or search query!");
 
-        // URL or search
         let videoUrl;
         if (q.startsWith("https://")) {
             videoUrl = q;
         } else {
-            // Auto search for YouTube link using yts
-            const yts = require('yt-search');
             const search = await yts(q);
             if (!search.videos || search.videos.length === 0)
                 return await reply("❌ No results found!");
@@ -34,7 +33,8 @@ cmd({
         }
 
         const api = `https://api.zenzxz.my.id/downloader/ytmp3v2?url=${encodeURIComponent(videoUrl)}`;
-        const res = await fetch(api);
+        const agent = new https.Agent({ rejectUnauthorized: false }); // SSL verify bypass
+        const res = await fetch(api, { agent });
         const data = await res.json();
 
         if (!data.status) return await reply("❌ Failed to fetch audio!");
