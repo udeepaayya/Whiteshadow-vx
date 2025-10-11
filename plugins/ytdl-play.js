@@ -1,67 +1,48 @@
-const { cmd } = require('../command')
-const fetch = require('node-fetch')
+const { cmd } = require('../command');
+const fetch = require('node-fetch');
 
 cmd({
-  pattern: "song",
-  alias: ["play", "mp3"],
-  react: "🎶",
-  desc: "Download YouTube song (Audio) via Nekolabs API",
+  pattern: "play2",
+  desc: "Download YouTube audio",
   category: "download",
-  use: ".song <query>",
   filename: __filename
-}, async (conn, mek, m, { from, reply, q }) => {
+}, async (conn, m, mek, { from, q }) => {
   try {
-    if (!q) return reply("⚠️ Please provide a song name or YouTube link.");
+    if (!q) return m.reply("❌ Please provide a YouTube URL or search query!");
 
-    // 🔹 API Call
-    const apiUrl = `https://api.nekolabs.my.id/downloader/youtube/play/v1?q=${encodeURIComponent(q)}`;
-    const res = await fetch(apiUrl);
-    const data = await res.json();
+    // API Call
+    let api = `https://gtech-api-xtp1.onrender.com/api/audio/yt?apikey=APIKEY&url=${encodeURIComponent(q)}`;
+    let res = await fetch(api);
+    let data = await res.json();
 
-    // 🔹 Validate response
-    if (!data?.success || !data?.result?.downloadUrl) {
-      return reply("❌ Song not found or API error. Try again later.");
+    if (!data.status || !data.result?.media?.audio_url) {
+      return m.reply("❌ Failed to fetch audio!");
     }
 
-    const meta = data.result.metadata;
-    const dlUrl = data.result.downloadUrl;
+    let media = data.result.media;
 
-    // 🔹 Try to fetch thumbnail
-    let buffer = null;
-    try {
-      const thumbRes = await fetch(meta.cover);
-      buffer = Buffer.from(await thumbRes.arrayBuffer());
-    } catch {}
+    await m.reply("⏳ Downloading audio...");
 
-    // 🔹 Caption design
-    const caption = `
-╔═══════════════
-🎶 *Now Playing*
-╠═══════════════
-🎵 *Title:* ${meta.title}
-👤 *Channel:* ${meta.channel}
-⏱ *Duration:* ${meta.duration}
-🔗 [Watch on YouTube](${meta.url})
-╠═══════════════
-⚡ Powered by *Whiteshadow MD*
-╚═══════════════
-`;
-
-    // 🔹 Send thumbnail & details
     await conn.sendMessage(from, {
-      image: buffer,
-      caption
-    }, { quoted: mek });
-
-    // 🔹 Send audio
-    await conn.sendMessage(from, {
-      audio: { url: dlUrl },
+      audio: { url: media.audio_url },
       mimetype: "audio/mpeg",
-      fileName: `${meta.title.replace(/[\\/:*?"<>|]/g, "").slice(0, 80)}.mp3`
-    }, { quoted: mek });
+      fileName: `${media.title}.mp3`,
+      contextInfo: {
+        externalAdReply: {
+          title: media.title,
+          body: media.channel || "YouTube Audio",
+          thumbnailUrl: media.thumbnail,
+          mediaType: 1,
+          mediaUrl: q,
+          sourceUrl: q
+        }
+      }
+    }, { quoted: m });
 
-  } catch (err) {
-    console.error("song cmd error:", err);
-    reply("⚠️ An error occurred while processing your request.");
+    await m.reply(`✅ *${media.title}* downloaded successfully!`);
+
+  } catch (e) {
+    console.error(e);
+    m.reply("❌ Error: " + e.message);
   }
 });
