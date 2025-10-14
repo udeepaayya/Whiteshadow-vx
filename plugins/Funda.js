@@ -1,17 +1,20 @@
 //=====================================
-// 🤣 WhiteShadow-MD Meme Video Plugin (Fun + Reply Number Quality)
+// 😂 WhiteShadow-MD XVideos Plugin (Fun + Reply Number Quality)
 // 👨‍💻 Developer: Chamod Nimsara
 //=====================================
 
 const { cmd } = require('../command');
 const { fetchJson } = require('../lib/functions');
+const fs = require('fs');
+const path = require('path');
+const axios = require('axios');
 
-const pendingReplies = new Map(); // global map to track reply selection
+const pendingReplies = new Map(); // global pending replies map
 
 cmd({
   pattern: "xvideo",
   alias: ["xv", "xvid"],
-  desc: "Search meme/funny videos and choose quality (1/2/3)",
+  desc: "Search meme/funny videos and download (1/2/3 reply)",
   category: "fun",
   react: "😂",
   use: ".xvideo <keyword>",
@@ -27,7 +30,7 @@ cmd({
     if (!searchRes?.success || !searchRes.result?.length) 
       return reply("😅 No meme/funny video found!");
 
-    const result = searchRes.result[0]; // take first result
+    const result = searchRes.result[0];
 
     // Step 2: Downloader API
     const downloaderRes = await fetchJson(`https://api.nekolabs.my.id/downloader/xvideos?url=${encodeURIComponent(result.url)}`);
@@ -54,16 +57,6 @@ cmd({
     await conn.sendMessage(from, {
       image: { url: result.cover },
       caption: menuText,
-      contextInfo: {
-        externalAdReply: {
-          title: result.title,
-          body: `${result.artist || 'Unknown'} • Meme/Funny`,
-          thumbnailUrl: result.cover,
-          sourceUrl: result.url,
-          mediaType: 1,
-          renderLargerThumbnail: true
-        }
-      }
     }, { quoted: mek });
 
     // Store pending reply
@@ -73,7 +66,7 @@ cmd({
     }
 
     const timeoutId = setTimeout(() => pendingReplies.delete(from), 30000);
-    pendingReplies.set(from, { vids, mapping, from, timeoutId });
+    pendingReplies.set(from, { vids, mapping, from, timeoutId, title: result.title });
 
   } catch (e) {
     console.log(e);
@@ -81,7 +74,7 @@ cmd({
   }
 });
 
-// Single global listener in index.js
+// Single global listener in index.js or plugin main file
 conn.ev.on('messages.upsert', async (msgUpdate) => {
   try {
     const messages = msgUpdate.messages;
@@ -102,19 +95,36 @@ conn.ev.on('messages.upsert', async (msgUpdate) => {
     }
 
     const chosenKey = pending.mapping[text];
-    const urlToSend = pending.vids[chosenKey];
+    let urlToDownload = pending.vids[chosenKey];
+
     clearTimeout(pending.timeoutId);
     pendingReplies.delete(chatId);
 
-    if (chosenKey.toLowerCase().includes('hls') || urlToSend.endsWith('.m3u8')) {
-      await conn.sendMessage(chatId, { text: `🔗 *Streaming Link (${chosenKey})*\n${urlToSend}\n\n(Use HLS player)` }, { quoted: message });
+    // HLS stream send as link
+    if (chosenKey.toLowerCase().includes('hls') || urlToDownload.endsWith('.m3u8')) {
+      await conn.sendMessage(chatId, { text: `🔗 *Streaming Link (${chosenKey})*\n${urlToDownload}\n\n(Use HLS player)` }, { quoted: message });
       return;
     }
 
+    // Download video to temp folder
+    const tmpFile = path.join(__dirname, `temp_${Date.now()}.mp4`);
+    const writer = fs.createWriteStream(tmpFile);
+    const response = await axios({ url: urlToDownload, method: 'GET', responseType: 'stream' });
+    response.data.pipe(writer);
+
+    await new Promise((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
+
+    // Send downloaded video
     await conn.sendMessage(chatId, {
-      video: { url: urlToSend },
+      video: { url: tmpFile },
       caption: `✅ Download ready (${chosenKey})\n*WhiteShadow-MD — Fun Meme*`
     }, { quoted: message });
+
+    // Delete temp file
+    fs.unlinkSync(tmpFile);
 
   } catch (e) {
     console.log('Reply handler error', e);
