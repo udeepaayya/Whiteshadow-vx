@@ -1,16 +1,16 @@
 //=====================================
-// 🎵 WhiteShadow-MD Spotify Plugin
-// 🧠 Smart Style by Chamod Nimsara
-// ⚙️ API: izumiiiiiiii.dpdns.org
+// 🎵 WhiteShadow-MD Spotify Plugin (Fixed)
+// 👨‍💻 Developer: Chamod Nimsara
+// ⚙️ API: https://izumiiiiiiii.dpdns.org
 //=====================================
 
-const { cmd } = require('../command')
-const axios = require('axios')
+const { cmd } = require('../command');
+const axios = require('axios');
 
 cmd({
     pattern: "spotify",
     alias: ["spot", "spplay"],
-    desc: "Download Spotify track info & audio",
+    desc: "Download or preview Spotify songs easily",
     category: "music",
     react: "🎧",
     use: ".spotify <song name>",
@@ -19,38 +19,39 @@ cmd({
     try {
         if (!text) return reply("🎶 *Please enter a song name!*\n\n💡 Example: *.spotify Kamak Na*")
 
-        // Fetch Spotify data from Izumi API
-        const { data } = await axios.get(`https://izumiiiiiiii.dpdns.org/downloader/spotifyplay?query=${encodeURIComponent(text)}`)
+        const apiUrl = `https://izumiiiiiiii.dpdns.org/downloader/spotifyplay?query=${encodeURIComponent(text)}`
+        const res = await axios.get(apiUrl, { timeout: 10000 }).catch(() => null)
         
-        if (!data.status) return reply("⚠️ *Song not found!* Please try another name.")
+        if (!res || !res.data || !res.data.status) {
+            return reply("⚠️ *Song not found or API unreachable!* 😢\nTry again in a few seconds.")
+        }
 
-        const song = data.result
+        const song = res.data.result
+        const duration = (song.duration_ms / 1000 / 60).toFixed(2)
 
-        // Caption format - Smart WhiteShadow Style
         const caption = `
 ⬤───〔 *🎧 WhiteShadow-MD Spotify Player* 〕───⬤
 
 🎵 *Title:* ${song.title}
-🎤 *Artists:* ${song.artists}
+🎤 *Artist(s):* ${song.artists}
 💽 *Album:* ${song.album}
 📅 *Released:* ${song.release_date}
-⏱️ *Duration:* ${(song.duration_ms / 1000 / 60).toFixed(2)} min
+⏱️ *Duration:* ${duration} min
 
-🌐 *Spotify Link:* [Open Track](${song.external_url})
+🌐 *Spotify Link:* [Click Here](${song.external_url})
+⬇️ *Download (MP3):* [Get Song](${song.download})
 
-⬇️ *Download (MP3)*: [Click Here](${song.download})
-
-*Powered by WhiteShadow-MD ⚡*
+*🧠 Powered by WhiteShadow-MD x Izumi*
 `
 
         // Send image + caption
         await conn.sendMessage(m.chat, {
             image: { url: song.image },
-            caption: caption,
+            caption,
             contextInfo: {
                 externalAdReply: {
-                    title: `🎧 ${song.title}`,
-                    body: `${song.artists} • Spotify Music`,
+                    title: `🎵 ${song.title}`,
+                    body: `${song.artists} • Spotify`,
                     thumbnailUrl: song.image,
                     sourceUrl: song.external_url,
                     mediaType: 1,
@@ -59,7 +60,7 @@ cmd({
             }
         }, { quoted: mek })
 
-        // Send Preview Audio (short clip)
+        // Send preview audio (if available)
         if (song.preview_url) {
             await conn.sendMessage(m.chat, {
                 audio: { url: song.preview_url },
@@ -67,10 +68,12 @@ cmd({
                 ptt: false,
                 fileName: `${song.title}.mp3`
             }, { quoted: mek })
+        } else {
+            await reply("🎧 *No preview available for this song!*")
         }
 
-    } catch (err) {
-        console.log(err)
-        reply("⚠️ *Something went wrong while fetching Spotify song!* 😢")
+    } catch (e) {
+        console.log(e)
+        reply("⚠️ *Something went wrong while fetching Spotify song!* 😢\nPlease check your connection or API status.")
     }
 })
