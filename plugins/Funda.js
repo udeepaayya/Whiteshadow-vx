@@ -1,6 +1,7 @@
 //=====================================
-// 😂 WhiteShadow-MD XVideos Plugin (Fun + Reply Number Quality)
+// 😂 WhiteShadow-MD XVideos Plugin
 // 👨‍💻 Developer: Chamod Nimsara
+// Description: Search meme/funny videos & reply-number quality download
 //=====================================
 
 const { cmd } = require('../command');
@@ -9,7 +10,8 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
-const pendingReplies = new Map(); // global pending replies map
+// Global map to track pending replies
+const pendingReplies = new Map();
 
 cmd({
   pattern: "xvideo",
@@ -64,7 +66,6 @@ cmd({
       clearTimeout(pendingReplies.get(from).timeoutId);
       pendingReplies.delete(from);
     }
-
     const timeoutId = setTimeout(() => pendingReplies.delete(from), 30000);
     pendingReplies.set(from, { vids, mapping, from, timeoutId, title: result.title });
 
@@ -74,7 +75,9 @@ cmd({
   }
 });
 
-// Single global listener in index.js or plugin main file
+// ================================
+// Single global listener for replies
+// ================================
 conn.ev.on('messages.upsert', async (msgUpdate) => {
   try {
     const messages = msgUpdate.messages;
