@@ -4,9 +4,9 @@
 //=====================================
 
 const { cmd } = require('../command');
-const axios = require('axios');
+const { fetchJson } = require('../lib/functions');
 
-const pendingReplies = new Map(); // map<chatId, { from, mapping, vids, timeoutId }>
+const pendingReplies = new Map(); // global map to track reply selection
 
 cmd({
   pattern: "xvideo",
@@ -16,24 +16,24 @@ cmd({
   react: "😂",
   use: ".xvideo <keyword>",
   filename: __filename
-}, async (conn, mek, m, { text, reply }) => {
+}, async (conn, mek, m, { text, from, reply }) => {
   try {
     if (!text) return reply("🔎 *Enter a keyword!* Example: `.xvideo indian funny`");
 
     await reply(`🔍 Searching for: *${text}* ...`);
 
     // Step 1: Search API
-    const searchRes = await axios.get(`https://api.nekolabs.my.id/discovery/xvideos/search?q=${encodeURIComponent(text)}`, { timeout: 10000 });
-    if (!searchRes.data?.success || !searchRes.data.result?.length) 
+    const searchRes = await fetchJson(`https://api.nekolabs.my.id/discovery/xvideos/search?q=${encodeURIComponent(text)}`);
+    if (!searchRes?.success || !searchRes.result?.length) 
       return reply("😅 No meme/funny video found!");
 
-    const result = searchRes.data.result[0]; // take first result
+    const result = searchRes.result[0]; // take first result
 
     // Step 2: Downloader API
-    const downloaderRes = await axios.get(`https://api.nekolabs.my.id/downloader/xvideos?url=${encodeURIComponent(result.url)}`, { timeout: 10000 });
-    if (!downloaderRes.data?.success) return reply("⚠️ Error fetching video links.");
+    const downloaderRes = await fetchJson(`https://api.nekolabs.my.id/downloader/xvideos?url=${encodeURIComponent(result.url)}`);
+    if (!downloaderRes?.success) return reply("⚠️ Error fetching video links.");
 
-    const vids = downloaderRes.data.result.videos || {};
+    const vids = downloaderRes.result.videos || {};
     const keys = Object.keys(vids);
     if (keys.length === 0) return reply("⚠️ No downloadable qualities available.");
 
@@ -41,17 +41,17 @@ cmd({
     const preferOrder = ['low','high','HLS'];
     const ordered = preferOrder.filter(k => keys.includes(k)).concat(keys.filter(k => !preferOrder.includes(k)));
     const mapping = {};
-    let menuText = `⬤───〔 *😂 WhiteShadow-MD Meme Video* 〕───⬤\n\n🎬 *Title:* ${result.title}\n⏱️ *Duration:* ${result.duration}\n\nChoose quality:\n`;
+    let menuText = `⬤───〔 *😂 WhiteShadow-MD Meme Video* 〕───⬤\n\n🎬 *Title:* ${result.title}\n⏱️ *Duration:* ${result.duration}\n\nReply with number to choose quality:\n`;
     ordered.forEach((k, idx) => {
       const num = idx + 1;
       mapping[String(num)] = k;
       const label = k === 'low' ? '360p (Low)' : k === 'high' ? '720p/1080p (High)' : k === 'HLS' ? 'HLS (Stream)' : k;
       menuText += `${num}️⃣ ${label}\n`;
     });
-    menuText += `\nReply with the number (1/2/3) within 30s to get the video.`;
+    menuText += `\nReply within 30s to get video.`;
 
     // Send thumbnail + menu
-    await conn.sendMessage(m.chat, {
+    await conn.sendMessage(from, {
       image: { url: result.cover },
       caption: menuText,
       contextInfo: {
@@ -67,13 +67,13 @@ cmd({
     }, { quoted: mek });
 
     // Store pending reply
-    if (pendingReplies.has(m.chat)) {
-      clearTimeout(pendingReplies.get(m.chat).timeoutId);
-      pendingReplies.delete(m.chat);
+    if (pendingReplies.has(from)) {
+      clearTimeout(pendingReplies.get(from).timeoutId);
+      pendingReplies.delete(from);
     }
 
-    const timeoutId = setTimeout(() => pendingReplies.delete(m.chat), 30000);
-    pendingReplies.set(m.chat, { from: m.sender, mapping, vids, timeoutId });
+    const timeoutId = setTimeout(() => pendingReplies.delete(from), 30000);
+    pendingReplies.set(from, { vids, mapping, from, timeoutId });
 
   } catch (e) {
     console.log(e);
@@ -81,7 +81,7 @@ cmd({
   }
 });
 
-// Listener for user's number reply
+// Single global listener in index.js
 conn.ev.on('messages.upsert', async (msgUpdate) => {
   try {
     const messages = msgUpdate.messages;
@@ -94,10 +94,10 @@ conn.ev.on('messages.upsert', async (msgUpdate) => {
     if (!pendingReplies.has(chatId)) return;
 
     const pending = pendingReplies.get(chatId);
-    if (message.key.participant && message.key.participant !== pending.from && message.key.remoteJid !== pending.from) return;
+    if (message.key.participant && message.key.participant !== pending.from) return;
 
     if (!pending.mapping[text]) {
-      await conn.sendMessage(chatId, { text: '❌ Invalid choice. Reply with the number shown (1/2/3).' }, { quoted: message });
+      await conn.sendMessage(chatId, { text: '❌ Invalid choice. Reply with the number shown.' }, { quoted: message });
       return;
     }
 
@@ -112,9 +112,7 @@ conn.ev.on('messages.upsert', async (msgUpdate) => {
     }
 
     await conn.sendMessage(chatId, {
-      document: { url: urlToSend },
-      mimetype: 'video/mp4',
-      fileName: `meme_${Date.now()}.mp4`,
+      video: { url: urlToSend },
       caption: `✅ Download ready (${chosenKey})\n*WhiteShadow-MD — Fun Meme*`
     }, { quoted: message });
 
