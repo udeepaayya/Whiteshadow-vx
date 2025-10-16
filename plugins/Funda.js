@@ -27,118 +27,83 @@
 
 
 **/
-const { cmd } = require('../command');
+  const { cmd } = require('../command');
 const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
-
-const pending = new Map(); // track pending quality selection
 
 cmd({
   pattern: "xvideo",
   alias: ["xv", "xvideos"],
   react: "🔞",
-  desc: "Search Xvideos & download (reply quality select)",
+  desc: "Search & download Xvideos video with reply quality selection",
   category: "fun",
   use: ".xvideo <search term>",
   filename: __filename
-}, async (conn, mek, m, { text }) => {
+}, async (conn, mek, m, { text, from, reply }) => {
   try {
-    if (!text) return m.reply("🔍 Please enter a search term!");
+    if (!text) return reply("🔍 *Please enter a search term!*\n\n_Example:_ .xvideo Indian girl");
 
-    // 1️⃣ Search API
+    // 🔎 Search video
     const search = await axios.get(`https://api.nekolabs.my.id/discovery/xvideos/search?q=${encodeURIComponent(text)}`);
-    if (!search.data.success || !search.data.result?.length) return m.reply("⚠️ No results found!");
+    if (!search.data.success || !search.data.result?.length) return reply("⚠️ *No results found!* 😢");
 
-    const video = search.data.result[0];
-    const { title, artist, duration, cover, url } = video;
-
-    // 2️⃣ Download API
-    const dl = await axios.get(`https://api.nekolabs.my.id/downloader/xvideos?url=${encodeURIComponent(url)}`);
-    if (!dl.data.success) return m.reply("⚠️ Error fetching video!");
-
-    const vids = dl.data.result.videos;
-    const keys = Object.keys(vids); // ["low","high","HLS"]
-
-    // 3️⃣ Send thumbnail + quality options
-    let menu = `🎬 *${title}*\n⏱ Duration: ${duration}\n\nReply with number to choose quality:\n`;
-    keys.forEach((k, i) => {
-      let label = k === 'low' ? '360p (Low)' : k === 'high' ? '720p/1080p (High)' : 'HLS (Stream)';
-      menu += `${i + 1}️⃣ ${label}\n`;
+    let list = "🔞 XVIDEOS SEARCH RESULTS\n\n";
+    search.data.result.forEach((vid, i) => {
+      list += `*\`${i+1}\` | ${vid.title || "No title"}*\n`;
     });
 
-    const msg = await conn.sendMessage(m.chat, { image: { url: cover }, caption: menu }, { quoted: mek });
+    const listMsg = await conn.sendMessage(from, { text: list + "\n🔢 *Reply with the number to choose a video.*" }, { quoted: mek });
+    const listMsgId = listMsg.key.id;
 
-    // 4️⃣ Store pending
-    pending.set(m.chat, {
-      vids,
-      keys,
-      msgId: msg.key.id,
-      title
+    conn.ev.on("messages.upsert", async (update) => {
+      const msg = update?.messages?.[0];
+      if (!msg?.message) return;
+
+      const textReply = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
+      const isReplyToList = msg?.message?.extendedTextMessage?.contextInfo?.stanzaId === listMsgId;
+      if (!isReplyToList) return;
+
+      const index = parseInt(textReply.trim()) - 1;
+      if (isNaN(index) || index < 0 || index >= search.data.result.length) return reply("❌ *Invalid number!*");
+
+      const chosen = search.data.result[index];
+
+      // 🧩 Download video
+      const dl = await axios.get(`https://api.nekolabs.my.id/downloader/xvideos?url=${encodeURIComponent(chosen.url)}`);
+      if (!dl.data.success) return reply("⚠️ *Error fetching video!* 😢");
+
+      const infoMap = dl.data.result;
+      const thumb = infoMap.thumb;
+      const low = infoMap.videos.low;
+      const high = infoMap.videos.high;
+
+      // Ask quality
+      const askQuality = await conn.sendMessage(from, {
+        image: { url: thumb },
+        caption: `*🎬 XVIDEOS INFO*\n\n*Title:* ${infoMap.title}\n*Duration:* ${infoMap.duration}\n\n*Reply below number:*\n1 | High quality\n2 | Low quality`
+      }, { quoted: msg });
+
+      const qualityMsgId = askQuality.key.id;
+
+      conn.ev.on("messages.upsert", async (qUpdate) => {
+        const qMsg = qUpdate?.messages?.[0];
+        if (!qMsg?.message) return;
+
+        const qText = qMsg.message?.conversation || qMsg.message?.extendedTextMessage?.text;
+        const isReplyToQuality = qMsg?.message?.extendedTextMessage?.contextInfo?.stanzaId === qualityMsgId;
+        if (!isReplyToQuality) return;
+
+        if (qText.trim() === "1") {
+          await conn.sendMessage(from, { video: { url: high }, caption: `🎥 High quality video\n${infoMap.title}` }, { quoted: qMsg });
+        } else if (qText.trim() === "2") {
+          await conn.sendMessage(from, { video: { url: low }, caption: `🎥 Low quality video\n${infoMap.title}` }, { quoted: qMsg });
+        } else {
+          await conn.sendMessage(from, { text: "❌ Invalid input. Reply 1 for high / 2 for low quality." }, { quoted: qMsg });
+        }
+      });
     });
-
-    // Auto-clear pending after 1 minute
-    setTimeout(() => pending.delete(m.chat), 60000);
 
   } catch (e) {
-    console.log(e);
-    m.reply("⚠️ Something went wrong! 😢");
-  }
-});
-
-// ===============================
-// Reply listener to send video
-// ===============================
-conn.ev.on("messages.upsert", async (update) => {
-  try {
-    const msg = update?.messages?.[0];
-    if (!msg?.message) return;
-
-    const chatId = msg.key.remoteJid;
-    const text = msg.message.conversation?.trim();
-    if (!text || !pending.has(chatId)) return;
-
-    const data = pending.get(chatId);
-    pending.delete(chatId);
-
-    // Check reply is to correct message (optional)
-    // const isReply = msg.message.extendedTextMessage?.contextInfo?.stanzaId === data.msgId;
-    // if (!isReply) return;  // we ignore strict stanzaId, allow any text reply
-
-    const index = parseInt(text) - 1;
-    if (isNaN(index) || index < 0 || index >= data.keys.length) {
-      return conn.sendMessage(chatId, { text: "❌ Invalid number. Reply 1/2/3." }, { quoted: msg });
-    }
-
-    const key = data.keys[index];
-    let url = data.vids[key];
-
-    // HLS stream send as link
-    if (key.toLowerCase() === 'hls' || url.endsWith('.m3u8')) {
-      return conn.sendMessage(chatId, { text: `🔗 Stream link (${key}):\n${url}` }, { quoted: msg });
-    }
-
-    // Download video to temp
-    const tmpFile = path.join(__dirname, `temp_${Date.now()}.mp4`);
-    const writer = fs.createWriteStream(tmpFile);
-    const response = await axios({ url, method: 'GET', responseType: 'stream' });
-    response.data.pipe(writer);
-
-    await new Promise((resolve, reject) => {
-      writer.on('finish', resolve);
-      writer.on('error', reject);
-    });
-
-    // Send video
-    await conn.sendMessage(chatId, {
-      video: { url: tmpFile },
-      caption: `✅ Download ready (${key})\n*${data.title}*`
-    }, { quoted: msg });
-
-    // Delete temp
-    fs.unlinkSync(tmpFile);
-
-  } catch (e) {
-    console.log("Reply handler error", e);
+    console.error(e);
+    await reply("⚠️ *Something went wrong while fetching Xvideos video!* 😢");
   }
 });
