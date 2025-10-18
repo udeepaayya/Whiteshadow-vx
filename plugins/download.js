@@ -7,10 +7,11 @@ const axios = require("axios");
 const { cmd, commands } = require('../command');
 
 
+
 cmd({
   pattern: "ig",
   alias: ["insta", "instagram"],
-  desc: "To download Instagram videos.",
+  desc: "Download Instagram videos or reels.",
   react: "🎥",
   category: "download",
   filename: __filename
@@ -28,13 +29,15 @@ cmd({
     const response = await axios.get(apiUrl);
     const data = response.data;
 
-    if (!data.status || !data.result || !data.result.downloadUrl) {
+    if (!data.success || !data.result || !data.result.downloadUrl) {
       return reply("⚠️ Couldn't fetch the Instagram video. Please check the link and try again.");
     }
 
     const result = data.result;
     const videoUrl = result.downloadUrl[0];
-    const caption = `📥 *Instagram Video Downloaded Successfully!*\n\n👤 *User:* @${result.metadata.username}\n❤️ *Likes:* ${result.metadata.like}\n💬 *Comments:* ${result.metadata.comment}\n📝 *Caption:* ${result.metadata.caption || "No caption"}\n\n> 🔰 Powered by *WhiteShadow-MD*`;
+    const meta = result.metadata || {};
+
+    const caption = `📥 *Instagram Video Downloaded Successfully!*\n\n👤 *User:* @${meta.username || "Unknown"}\n❤️ *Likes:* ${meta.like || "N/A"}\n💬 *Comments:* ${meta.comment || "N/A"}\n📝 *Caption:* ${meta.caption || "No caption"}\n\n> 🔰 Powered by *WhiteShadow-MD*`;
 
     await conn.sendMessage(from, {
       video: { url: videoUrl },
@@ -47,7 +50,6 @@ cmd({
     reply("❌ Error downloading Instagram video. Please try again later.");
   }
 });
-
 // twitter-dl
 
 cmd({
