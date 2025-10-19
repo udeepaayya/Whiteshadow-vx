@@ -1,7 +1,7 @@
 //═══════════════════════════════════════════════//
 //                WHITESHADOW-MD                  //
 //═══════════════════════════════════════════════//
-//  ⚡ Feature : NanoBanana AI Image Edit (Catbox Upload)
+//  ⚡ Feature : NanoBanana AI Image Editor
 //  👑 Developer : Chamod Nimsara (WhiteShadow)
 //  📡 Channel   : https://whatsapp.com/channel/0029Vb4fjWE1yT25R7epR110
 //═══════════════════════════════════════════════//
@@ -15,8 +15,8 @@ const path = require("path");
 
 cmd({
   pattern: "nanobanana",
-  alias: ["nb"],
-  desc: "AI Image editing using NanoBanana API (Catbox Upload)",
+  alias: ["nb", "nano"],
+  desc: "AI-powered Image Editing using NanoBanana (NekoLabs API + Catbox Upload)",
   category: "ai",
   react: "🎨",
   use: "<prompt>",
@@ -26,75 +26,78 @@ cmd({
     const q = message.quoted ? message.quoted : message;
     const mime = (q.msg || q).mimetype || q.mediaType || "";
 
+    // 🖼️ Validate image reply
     if (!/image/.test(mime)) {
-      return await reply(`⚠️ *Please reply to an image with a prompt!*\n\nExample:\n.nanobanana make it anime style`);
+      return await reply(`⚠️ *Please reply to an image with your prompt!*\n\n📌 *Example:*\n.nanobanana make it look like a cartoon`);
     }
 
-    // Get prompt safely
-    const prompt = typeof text === "string" && text.trim().length > 0 
-      ? text.trim() 
-      : Array.isArray(args) 
-        ? args.join(" ") 
+    // 📝 Get prompt
+    const prompt = typeof text === "string" && text.trim().length > 0
+      ? text.trim()
+      : Array.isArray(args)
+        ? args.join(" ")
         : "";
 
     if (!prompt) {
-      return await reply(`⚠️ *Please provide a prompt!*\n\nExample:\n.nanobanana make it anime style`);
+      return await reply(`⚠️ *Please provide a prompt!*\n\n📌 *Example:*\n.nanobanana change the background to forest`);
     }
 
-    if (prompt.length > 500) {
-      return await reply(`❌ Prompt too long! Maximum 500 characters allowed.`);
+    if (prompt.length > 400) {
+      return await reply(`❌ *Prompt too long!* Maximum 400 characters allowed.`);
     }
 
-    // Send processing message (no .key usage)
-    await reply("⏳ Uploading image to Catbox and processing with Nano-Banana AI...");
+    await reply("⏳ *Uploading image to Catbox...*");
 
-    // Download image
+    // 🧩 Download image
     const imgBuffer = await q.download();
-    if (!imgBuffer || imgBuffer.length === 0) throw new Error("❌ Failed to download image!");
-    if (imgBuffer.length > 10 * 1024 * 1024) throw new Error("❌ Image too large! Max 10MB.");
+    if (!imgBuffer || imgBuffer.length === 0)
+      throw new Error("❌ Failed to download the image!");
 
-    // Save temp file
-    const tempFilePath = path.join(os.tmpdir(), `nanobanana_${Date.now()}.jpg`);
-    fs.writeFileSync(tempFilePath, imgBuffer);
+    if (imgBuffer.length > 10 * 1024 * 1024)
+      throw new Error("❌ Image too large! Max 10MB allowed.");
 
-    // Upload to Catbox
+    // 💾 Save temp file
+    const tempPath = path.join(os.tmpdir(), `nanobanana_${Date.now()}.jpg`);
+    fs.writeFileSync(tempPath, imgBuffer);
+
+    // 🪶 Upload to Catbox
     const form = new FormData();
     form.append("reqtype", "fileupload");
-    form.append("fileToUpload", fs.createReadStream(tempFilePath), "image.jpg");
+    form.append("fileToUpload", fs.createReadStream(tempPath), "image.jpg");
 
     const catboxRes = await axios.post("https://catbox.moe/user/api.php", form, {
-      headers: form.getHeaders()
+      headers: form.getHeaders(),
     });
 
-    const imageUrl = catboxRes.data.trim();
-    fs.unlinkSync(tempFilePath);
+    fs.unlinkSync(tempPath);
 
-    if (!imageUrl.startsWith("https://files.catbox.moe")) {
+    const imageUrl = catboxRes.data.trim();
+    if (!imageUrl.startsWith("https://files.catbox.moe"))
       throw new Error("❌ Failed to upload image to Catbox!");
+
+    await reply("🎨 *Image uploaded!* Now processing with NanoBanana AI...");
+
+    // 🌐 API Call
+    const apiUrl = `https://api.nekolabs.my.id/ai/gemini/nano-banana?prompt=${encodeURIComponent(prompt)}&imageUrl=${encodeURIComponent(imageUrl)}`;
+    const response = await axios.get(apiUrl, { timeout: 90000 });
+
+    const data = response.data;
+
+    if (!data?.success || !data?.result) {
+      throw new Error("❌ No valid result received from NanoBanana API.");
     }
 
-    await reply("🎨 Image uploaded! Processing with AI...");
+    // 🖼️ Final AI Image
+    const aiImage = data.result;
 
-    // Call NanoBanana API
-    const apiUrl = `https://api.platform.web.id/nano-banana?imageUrl=${encodeURIComponent(imageUrl)}&prompt=${encodeURIComponent(prompt)}`;
-    const response = await axios.get(apiUrl, { timeout: 60000 });
-    const json = response.data;
-
-    if (!json?.success || !json?.result?.results?.length)
-      throw new Error("❌ No valid result received from NanoBanana API.");
-
-    const resultUrl = json.result.results[0].url;
-    if (!resultUrl) throw new Error("❌ AI result not found!");
-
-    // Send AI result
     await client.sendMessage(message.chat, {
-      image: { url: resultUrl },
-      caption: `✨ *Nano-Banana AI Result*\n\n*Prompt:* ${prompt}\n*Requested by:* @${message.sender.split("@")[0]}`,
-      mentions: [message.sender]
+      image: { url: aiImage },
+      caption: `✨ *NanoBanana AI Image Edit*\n\n🧠 *Prompt:* ${prompt}\n👤 *Requested by:* @${message.sender.split("@")[0]}\n📸 *Engine:* Gemini NanoBanana (NekoLabs)`,
+      mentions: [message.sender],
     }, { quoted: message });
 
-  } catch (error) {
-    console.error(error);
-    await reply(`🚨 *Error:* ${error.message || error}\n\n💡 *Tips:*\n• Use English prompts\n• Make sure image <10MB\n• Try again later if server busy`);
+  } catch (err) {
+    console.error(err);
+    await reply(`🚨 *Error:* ${err.message || err}\n\n💡 *Tips:*\n• Use short, clear prompts (English preferred)\n• Ensure image <10MB\n• Try again later if server busy.`);
   }
 });
