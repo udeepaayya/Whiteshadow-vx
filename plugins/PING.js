@@ -92,7 +92,7 @@ cmd({
 
     await client.sendMessage(message.chat, {
       image: { url: aiImage },
-      caption: `✨ *NanoBanana AI Image Edit*\n\n🧠 *Prompt:* ${prompt}\n👤 *Requested by:* @${message.sender.split("@")[0]}\n📸 *Engine:* Gemini NanoBanana (NekoLabs)`,
+      caption: `✨ *NanoBanana AI Image Edit*\n\n🧠 *Prompt:* ${prompt}\n👤 *Requested by:* @${message.sender.split("@")[0]}\n📸 *Powered by WHITESHADOW-MD*`,
       mentions: [message.sender],
     }, { quoted: message });
 
