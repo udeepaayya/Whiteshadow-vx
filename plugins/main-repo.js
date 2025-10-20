@@ -15,7 +15,6 @@ async (conn, mek, m, { from, reply }) => {
     const channelLink = "https://whatsapp.com/channel/0029Vaj3Xnu17EmtDxTNnQ0G";
 
     try {
-        // Repo username / name extract
         const cleanUrl = githubRepoURL.replace(/\.git$/, "").replace(/\/+$/, "");
         const match = cleanUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
         if (!match) return reply("⚠️ Invalid GitHub repo URL set in code!");
@@ -26,7 +25,6 @@ async (conn, mek, m, { from, reply }) => {
 
         const repoData = await response.json();
 
-        // Caption
         const caption = `📦 *Repository*: ${repoData.name}
 👑 *Owner*: ${repoData.owner.login}
 ⭐ *Stars*: ${repoData.stargazers_count}
@@ -39,20 +37,19 @@ async (conn, mek, m, { from, reply }) => {
 
 > ${config.DESCRIPTION}`;
 
-        // Send with Buttons
+        // Send repo info with interactive buttons
         await conn.sendMessage(from, {
             image: { url: config.MENU_IMAGE_URL || "https://files.catbox.moe/cz2592.jpeg" },
             caption,
             footer: `👑 ${config.BOT_NAME || 'WHITESHADOW-MD'} 👑`,
             buttons: [
-                { buttonId: "stars_info", buttonText: { displayText: `⭐ Stars (${repoData.stargazers_count})` }, type: 1 },
-                { buttonId: "forks_info", buttonText: { displayText: `🍴 Forks (${repoData.forks_count})` }, type: 1 },
-                { buttonId: "channel_btn", buttonText: { displayText: "📢 Join Channel" }, type: 1 }
+                { buttonId: "repo_stars", buttonText: { displayText: `⭐ Stars (${repoData.stargazers_count})` }, type: 1 },
+                { buttonId: "repo_forks", buttonText: { displayText: `🍴 Forks (${repoData.forks_count})` }, type: 1 },
+                { buttonId: "repo_channel", buttonText: { displayText: "📢 Join Channel" }, type: 1 }
             ],
             headerType: 4
         }, { quoted: mek });
 
-        // Send audio jingle
         await conn.sendMessage(from, {
             audio: { url: "https://files.catbox.moe/mpt43m.mp3" },
             mimetype: "audio/mp4",
@@ -66,21 +63,23 @@ async (conn, mek, m, { from, reply }) => {
 });
 
 
-// ----------------------
-// 🎯 Handle Button Events
-// ----------------------
+// ---------------------------
+// ✅ පුක සුදුද
+// ---------------------------
 cmd({
-    on: "button",
-    fromMe: false
-}, async (conn, mek, m, { from, buttonId, reply }) => {
+    pattern: "repo_btn",
+    dontAddCommandList: true,
+    on: "message"
+}, async (conn, mek, m, { from, reply }) => {
     try {
-        if (buttonId === "stars_info") {
+        const btn = m?.message?.buttonsResponseMessage?.selectedButtonId;
+        if (!btn) return;
+
+        if (btn === "repo_stars") {
             return reply("🌟 Stars show repo popularity. More stars = more users love this project!");
-        }
-        if (buttonId === "forks_info") {
+        } else if (btn === "repo_forks") {
             return reply("🍴 Forks mean how many developers copied this repo to work on.");
-        }
-        if (buttonId === "channel_btn") {
+        } else if (btn === "repo_channel") {
             return conn.sendMessage(from, {
                 text: "📢 Join our WhatsApp Channel:\nhttps://whatsapp.com/channel/0029Vaj3Xnu17EmtDxTNnQ0G"
             }, { quoted: mek });
