@@ -9,10 +9,8 @@
 
 const { cmd } = require('../command');
 const fetch = require('node-fetch');
-const fs = require('fs');
-const path = require('path');
 
-//────────────────── Search Command (.cz)
+//────────────── Search Movies ──────────────//
 cmd({
   pattern: "cz",
   alias: ["cinesubz", "sinhalasub", "moviecz"],
@@ -24,7 +22,7 @@ cmd({
 },
 async (conn, mek, m, { from, args, reply }) => {
   try {
-    if (!args[0]) return reply("🕵️‍♂️ *Please enter a movie name to search!*\n📘 Example: .cz new");
+    if (!args || !args[0]) return reply("🕵️‍♂️ *Please enter a movie name to search!*\n📘 Example: .cz new");
 
     const query = args.join(" ");
     const searchUrl = `https://foreign-marna-sithaunarathnapromax-9a005c2e.koyeb.app/api/cinesubz/search?q=${encodeURIComponent(query)}&apiKey=d3d7e61cc85c2d70974972ff6d56edfac42932d394f7551207d2f6ca707eda56`;
@@ -32,7 +30,8 @@ async (conn, mek, m, { from, args, reply }) => {
     const res = await fetch(searchUrl);
     const data = await res.json();
 
-    if (!data?.data?.length) return reply("❌ No results found for your search.");
+    if (!data || !data.data || data.data.length === 0)
+      return reply("❌ No results found for your search.");
 
     let msg = `🎬 *CineSubz Sinhala Subtitle Movies* 🎥\n\n🔍 Results for: *${query}*\n───────────────────\n`;
 
@@ -40,7 +39,7 @@ async (conn, mek, m, { from, args, reply }) => {
       msg += `📍 *${i + 1}.* ${movie.title}\n📅 Year: ${movie.year || "Unknown"}\n⭐ ${movie.rating || "N/A"}\n🎞️ Type: ${movie.type}\n🔗 ${movie.link}\n\n`;
     });
 
-    msg += `───────────────────\n💡 *Use:* .czinfo <movie link>\nTo get movie details and download link.`;
+    msg += `───────────────────\n💡 *Use:* .czinfo <movie link>\nTo get movie details and download link.\n\n⚡ Powered by WhiteShadow-MD`;
 
     await conn.sendMessage(from, { text: msg }, { quoted: mek });
 
@@ -50,7 +49,7 @@ async (conn, mek, m, { from, args, reply }) => {
   }
 });
 
-//────────────────── Movie Info (.czinfo)
+//────────────── Movie Info & Download Link ──────────────//
 cmd({
   pattern: "czinfo",
   alias: ["czdetail", "czmovie"],
@@ -72,11 +71,11 @@ async (conn, mek, m, { from, args, reply }) => {
     const d = data.mainDetails;
     const mov = data.moviedata;
 
-    let caption = `🎬 *${d.maintitle}*\n\n⭐ *IMDb:* ${d.rating?.value || "N/A"} (${d.rating?.count || "?"} votes)\n🎭 *Genres:* ${d.genres?.join(", ") || "Unknown"}\n🕓 *Runtime:* ${d.runtime || "Unknown"}\n🌍 *Country:* ${d.country || "Unknown"}\n📅 *Released:* ${d.dateCreated}\n🎥 *Director:* ${mov.director || "Unknown"}\n\n📝 *Description:*\n${mov.description?.trim() || "No description"}\n\n🔗 *Watch Page:*\n${data.dilinks?.link}\n\n💾 *Use:* .czdl <episode link>\nTo download as MP4 document.`;
+    let caption = `🎬 *${d.maintitle}*\n\n⭐ *IMDb:* ${d.rating?.value || "N/A"} (${d.rating?.count || "?"} votes)\n🎭 *Genres:* ${d.genres?.join(", ") || "Unknown"}\n🕓 *Runtime:* ${d.runtime || "Unknown"}\n🌍 *Country:* ${d.country || "Unknown"}\n📅 *Released:* ${d.dateCreated}\n🎥 *Director:* ${mov.director || "Unknown"}\n\n📝 *Description:*\n${mov.description.trim() || "No description"}\n\n🔗 *Watch Page:*\n${data.dilinks?.link}\n\n💾 *Use:* .czdl <episode/movie link>\nTo get direct download link.\n\n⚡ Powered by WhiteShadow-MD`;
 
     await conn.sendMessage(from, {
       image: { url: d.imageUrl },
-      caption
+      caption: caption
     }, { quoted: mek });
 
   } catch (err) {
@@ -85,12 +84,12 @@ async (conn, mek, m, { from, args, reply }) => {
   }
 });
 
-//────────────────── Download Command (.czdl)
+//────────────── Direct Download (No Temp) ──────────────//
 cmd({
   pattern: "czdl",
   alias: ["czdownload"],
   react: "⬇️",
-  desc: "Download CineSubz movie/episode and send as mp4 document",
+  desc: "Send CineSubz movie directly as WhatsApp document (no temp download)",
   category: "movies",
   use: ".czdl <episode/movie link>",
   filename: __filename
@@ -100,40 +99,21 @@ async (conn, mek, m, { from, args, reply }) => {
     if (!args[0]) return reply("🎞️ Please provide a valid *episode/movie link!*");
 
     const url = encodeURIComponent(args[0]);
-    const api = `https://foreign-marna-sithaunarathnapromax-9a005c2e.koyeb.app/api/cinesubz/downloadurl?url=${url}&apiKey=d3d7e61cc85c2d70974972ff6d56edfac42932d394f7551207d2f6ca707eda56`;
+    const apiUrl = `https://foreign-marna-sithaunarathnapromax-9a005c2e.koyeb.app/api/cinesubz/downloadurl?url=${url}&apiKey=d3d7e61cc85c2d70974972ff6d56edfac42932d394f7551207d2f6ca707eda56`;
 
-    const res = await fetch(api);
+    const res = await fetch(apiUrl);
     const json = await res.json();
 
-    if (!json?.url) return reply("❌ Download link not found or invalid.");
+    if (!json.url) return reply("❌ Download link not found.");
 
-    reply(`📥 *Downloading movie...*\n\n🎬 *Quality:* ${json.quality}\n💾 *Size:* ${json.size}\n\n⚙️ Please wait until upload completes ⏳`);
-
-    // Download the file
-    const response = await fetch(json.url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    const tempPath = path.join(__dirname, `../temp/czdl_${Date.now()}.mp4`);
-    const fileStream = fs.createWriteStream(tempPath);
-
-    await new Promise((resolve, reject) => {
-      response.body.pipe(fileStream);
-      response.body.on("error", reject);
-      fileStream.on("finish", resolve);
-    });
-
-    // Send as document (mp4)
     await conn.sendMessage(from, {
-      document: fs.readFileSync(tempPath),
+      document: { url: json.url },
       mimetype: "video/mp4",
-      fileName: `WhiteShadow_${json.quality || "Movie"}.mp4`,
-      caption: `🎬 *Downloaded via WhiteShadow-MD*\n\n⚡ *Source:* CineSubz\n📦 *Size:* ${json.size}`
+      fileName: `WhiteShadow_${json.quality}.mp4`
     }, { quoted: mek });
-
-    fs.unlinkSync(tempPath);
 
   } catch (e) {
     console.error(e);
-    reply("⚠️ Failed to download or send movie file.");
+    reply("⚠️ Failed to send movie document!");
   }
 });
