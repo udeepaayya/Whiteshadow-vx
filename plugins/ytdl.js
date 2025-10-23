@@ -10,7 +10,7 @@ cmd({
     react: "🎵",
     desc: "Download song from YouTube using Nekolabs API",
     category: "download",
-    use: ".songx <text or YouTube URL>",
+    use: ".song3 <text or YouTube URL>",
     filename: __filename
 }, async (conn, m, mek, { from, q, reply }) => {
     try {
@@ -44,9 +44,9 @@ cmd({
 🖇 *Source:* YouTube
 
 🔽 *Reply with your choice:*
-> 1 *Audio Type* 🎧
-> 2 *Document Type* 📁
-> 3 *Voice Note Type* 🎙️
+> 1️⃣ *Audio Type* 🎧
+> 2️⃣ *Document Type* 📁
+> 3️⃣ *Voice Note Type* 🎙️
 
 ${config.FOOTER || "WHITESHADOW-MD❤️"}`;
 
@@ -74,7 +74,7 @@ ${config.FOOTER || "WHITESHADOW-MD❤️"}`;
                     await conn.sendMessage(from, { text: "✅ *Document sent successfully!* 📁", edit: processing.key });
 
                 } else if (userChoice === "3") {
-                    await conn.sendMessage(from, { audio: { url: downloadUrl }, ptt: false, mimetype: "audio/ogg; codecs=opus" }, { quoted: mek });
+                    await conn.sendMessage(from, { audio: { url: downloadUrl }, ptt: true, mimetype: "audio/ogg; codecs=opus" }, { quoted: mek });
                     await conn.sendMessage(from, { text: "✅ *Voice note sent successfully!* 🎙️", edit: processing.key });
 
                 } else {
