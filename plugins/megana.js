@@ -1,49 +1,57 @@
-/*
- * Mega.nz Universal Upload Plugin (Fixed)
- * Author: ZenzzXD | Modified by WhiteShadow
+/**
+ * 🔰 WHITESHADOW-MD Transfer.sh Uploader 🔰
+ * Upload any photo, video, document, zip, apk, or file
+ * Author: Chamod Nimsara | Team WhiteShadow
  */
 
-import { Storage } from 'megajs';
-import { cmd } from '../command.js';
+import axios from 'axios';
+import FormData from 'form-data';
 import fs from 'fs';
 import path from 'path';
+import { cmd } from '../command.js';
 
-// Mega.nz login credentials
-const email = 'gsbxbbsbxb@gmail.com';
-const password = 'WHITESHADOW-MD';
-
-async function uploadToMega(fileName, buffer) {
+async function uploadToTransfer(fileName, buffer) {
   const tempPath = path.join('./', fileName);
-  await fs.promises.writeFile(tempPath, buffer); // Save temp file
+  await fs.promises.writeFile(tempPath, buffer);
 
-  const storage = await new Storage({ email, password }).ready;
-  const upload = storage.upload(fileName, fs.createReadStream(tempPath));
-  const file = await upload.complete;
+  const form = new FormData();
+  form.append('file', fs.createReadStream(tempPath));
+
+  const response = await axios.post(`https://transfer.sh/${encodeURIComponent(fileName)}`, fs.createReadStream(tempPath), {
+    headers: {
+      ...form.getHeaders(),
+    },
+    maxBodyLength: Infinity,
+    maxContentLength: Infinity,
+  });
 
   await fs.promises.unlink(tempPath); // Delete temp file after upload
-  return await file.link();
+  return response.data; // URL returned by transfer.sh
 }
 
 cmd({
-  pattern: 'upmeganz',
-  alias: ['megaupload'],
-  desc: 'Upload any file (photo, video, zip, audio, doc) to Mega.nz',
+  pattern: 'uptransfer',
+  alias: ['upload', 'anonupload'],
+  desc: 'Upload any file to transfer.sh (no login required)',
   react: '📤',
-  category: 'tools'
+  category: 'tools',
 }, async (conn, m) => {
   const q = m.quoted ? m.quoted : m;
   const mime = (q.msg || q).mimetype || '';
-  if (!mime) return m.reply('Reply a photo, video, or file with this command.');
+  if (!mime) return await m.reply('⚠️ Reply to a photo, video, or file to upload.');
 
   const buffer = await q.download();
-  if (!buffer) return m.reply('Failed to download file.');
+  if (!buffer) return await m.reply('❌ File download failed.');
 
   try {
-    const fileName = q.filename || `file_${Date.now()}.${mime.split('/')[1] || 'bin'}`;
-    const link = await uploadToMega(fileName, buffer);
-    await m.reply(`✅ **Upload Successful!**\n\n📁 *File:* ${fileName}\n🔗 *Mega Link:* ${link}`);
+    const ext = mime.split('/')[1] || 'bin';
+    const fileName = q.filename || `WhiteShadow_${Date.now()}.${ext}`;
+    const link = await uploadToTransfer(fileName, buffer);
+    await m.reply(
+      `✅ *Upload Successful!*\n\n📁 *File:* ${fileName}\n🔗 *Link:* ${link}\n\n_© WHITESHADOW-MD_`
+    );
   } catch (err) {
-    console.error(err);
-    m.reply(`❌ Upload failed: ${err.message}`);
+    console.error('Upload error:', err);
+    await m.reply(`❌ Upload failed: ${err.message}`);
   }
 });
