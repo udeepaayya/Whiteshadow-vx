@@ -33,7 +33,7 @@ cmd({
       return await reply("⚠️ No results found!");
 
     // Filter only video type
-    const videos = data.videos.filter(v => v.type === "video").slice(0, 8);
+    const videos = data.videos.filter(v => v.type === "video").slice(0, 10);
 
     let msg = `🎬 *Search Results for:* ${q}\n\n`;
     videos.forEach((v, i) => {
