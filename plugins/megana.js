@@ -4,62 +4,50 @@
  * Description: Upload any file (photo, video, doc, zip) to transfer.sh anonymously
  */
 
-import axios from 'axios';
-import fs from 'fs';
-import path from 'path';
-import { cmd } from '../command.js';
-
-async function uploadToTransfer(fileName, buffer) {
-  const tempPath = path.resolve(`./${fileName}`);
-  await fs.promises.writeFile(tempPath, buffer);
-
-  const fileStream = fs.createReadStream(tempPath);
-
-  try {
-    const response = await axios({
-      method: 'put',
-      url: `https://transfer.sh/${encodeURIComponent(fileName)}`,
-      headers: {
-        'Content-Type': 'application/octet-stream',
-      },
-      data: fileStream,
-      maxBodyLength: Infinity,
-      maxContentLength: Infinity,
-      timeout: 0,
-    });
-
-    await fs.promises.unlink(tempPath);
-    return response.data; // The direct link from transfer.sh
-  } catch (err) {
-    await fs.promises.unlink(tempPath).catch(() => {});
-    throw err;
-  }
-}
+const { cmd } = require('../command');
+const axios = require('axios');
+const FormData = require('form-data');
+const fs = require('fs');
+const path = require('path');
 
 cmd({
-  pattern: 'uptransfer',
-  alias: ['upload', 'anonupload'],
-  desc: 'Upload any file to transfer.sh (no login)',
-  react: '📤',
-  category: 'tools',
-}, async (conn, m) => {
-  const q = m.quoted ? m.quoted : m;
-  const mime = (q.msg || q).mimetype || '';
-  if (!mime) return await m.reply('⚠️ Reply with a photo, video, or file to upload.');
+    pattern: "cdn",
+    alias: ["upload", "store"],
+    desc: "Upload replied file to Bandaheali CDN",
+    category: "tools",
+    react: "☁️",
+    filename: __filename
+}, async (conn, mek, m, { from }) => {
+    try {
+        const quoted = mek.quoted || m.quoted;
+        if (!quoted) return mek.reply("❌ *Reply* to any image/video/document to upload it to CDN.");
 
-  const buffer = await q.download();
-  if (!buffer) return await m.reply('❌ Failed to download file.');
+        const qmsg = quoted.msg || quoted;
+        const mediaPath = await conn.downloadAndSaveMediaMessage(qmsg);
+        if (!mediaPath) return mek.reply("❌ Could not download the file. Try again!");
 
-  try {
-    const ext = mime.split('/')[1] || 'bin';
-    const fileName = q.filename || `WhiteShadow_${Date.now()}.${ext}`;
-    const link = await uploadToTransfer(fileName, buffer);
+        const ext = path.extname(mediaPath) || ".bin";
+        const filename = "WHITESHADOW~" + Math.floor(Math.random() * 100000) + ext;
 
-    await m.reply(
-      `✅ *Upload Successful!*\n\n📁 *File:* ${fileName}\n🔗 *Link:* ${link}\n\n_© WHITESHADOW-MD_`
-    );
-  } catch (err) {
-    console.error('Transfer.sh error:', err);
-    await m.reply(`❌ Upload failed: ${err.message || err}`);
-  }
+        let form = new FormData();
+        form.append("file", fs.createReadStream(mediaPath), { filename });
+
+        let uploadMsg = await mek.reply("☁️ Uploading file to *Bandaheali CDN*...");
+
+        const { data } = await axios.post("https://cdn-bandaheali.vercel.app/api/upload", form, {
+            headers: form.getHeaders()
+        });
+
+        fs.unlinkSync(mediaPath);
+
+        if (data?.file?.url) {
+            await uploadMsg.edit(`✅ *File uploaded successfully!*\n\n🌐 *CDN URL:*\n${data.file.url}`);
+        } else {
+            await uploadMsg.edit("❌ Upload failed.\n```" + JSON.stringify(data, null, 2) + "```");
+        }
+
+    } catch (error) {
+        console.error("CDN Upload Error:", error);
+        await mek.reply("❌ *Failed to upload file.*\nError: " + error.message);
+    }
 });
