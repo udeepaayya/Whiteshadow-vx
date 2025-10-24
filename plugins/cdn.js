@@ -5,67 +5,113 @@
   ✦ Type: ESM Compatible Plugin
 **/
 
-const { cmd } = require('../command');
+
+    const { cmd } = require('../command');
+const { fetchJson } = require('../lib/functions');
 const yts = require('yt-search');
 
-let searchCache = {};
+const ws_footer = "> © Powered by WhiteShadow-MD";
 
 cmd({
-  pattern: 'yts2',
-  alias: ['ytsearch2'],
-  desc: 'Search YouTube and get details by replying with number',
-  category: 'download',
-  react: '🎬'
-}, async (conn, mek, m, { text, from }) => {
-  try {
-    if (!text) return await conn.sendMessage(from, { text: '🔍 *Please enter a song name.*\nExample: .yts2 lelena' });
+  pattern: "yts2",
+  alias: ["ytsearch2"],
+  use: ".yts2 <song name>",
+  react: "🎬",
+  desc: "Search YouTube videos and download by replying.",
+  category: "download",
+  filename: __filename
+}, async (conn, mek, m, { q, from, reply }) => {
 
-    const { videos } = await yts(text);
-    if (!videos || videos.length === 0) return await conn.sendMessage(from, { text: '⚠️ No results found.' });
-
-    let msg = `🎬 *Search Results for:* ${text}\n\n`;
-    searchCache[from] = videos.slice(0, 8);
-    let i = 1;
-
-    for (const v of searchCache[from]) {
-      msg += `*${i++}.* ${v.title}\n`;
+  const react = async (msgKey, emoji) => {
+    try {
+      await conn.sendMessage(from, {
+        react: {
+          text: emoji,
+          key: msgKey
+        }
+      });
+    } catch (e) {
+      console.error("Reaction error:", e.message);
     }
+  };
 
-    msg += `\n🪄 *Reply with number (1-${searchCache[from].length}) to get video details.*`;
-
-    await conn.sendMessage(from, { text: msg }, { quoted: mek });
-
-  } catch (err) {
-    console.log(err);
-    await conn.sendMessage(from, { text: '⚠️ Error fetching results.' });
-  }
-});
-
-// detect reply (works in all chats)
-cmd({
-  on: 'chat-update'
-}, async (conn, mek) => {
   try {
-    if (!mek.message) return;
-    const from = mek.key.remoteJid;
-    const msg = mek.message.conversation || mek.message.extendedTextMessage?.text;
-    if (!msg || !/^\d+$/.test(msg.trim())) return;
-    if (!searchCache[from]) return;
+    if (!q) return await reply("🔍 Please enter a YouTube search term!\nExample: *.yts2 lelena*");
 
-    const index = parseInt(msg.trim()) - 1;
-    const video = searchCache[from][index];
-    if (!video) return;
+    const search = await yts(q);
+    if (!search.videos || search.videos.length === 0) return await reply("⚠️ No results found for your query.");
 
-    const caption = `🎶 *${video.title}*\n👤 Channel: ${video.author.name}\n👁️ Views: ${video.views}\n🕒 Duration: ${video.timestamp}\n📅 Uploaded: ${video.ago}\n\n🔗 ${video.url}`;
+    let list = "🎬 *WHITE SHADOW YouTube Search Result*\n\n";
+    search.videos.slice(0, 8).forEach((v, i) => {
+      list += `*${i + 1} | | ${v.title}*\n`;
+    });
 
-    await conn.sendMessage(from, {
-      image: { url: video.thumbnail },
-      caption
+    const listMsg = await conn.sendMessage(from, {
+      text: list + `\n🔢 *Reply below number to select a video.*\n\n${ws_footer}`
     }, { quoted: mek });
 
-    delete searchCache[from];
+    const listMsgId = listMsg.key.id;
 
-  } catch (err) {
-    console.log(err);
+    conn.ev.on("messages.upsert", async (update) => {
+      const msg = update?.messages?.[0];
+      if (!msg?.message) return;
+
+      const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
+      const isReplyToList = msg?.message?.extendedTextMessage?.contextInfo?.stanzaId === listMsgId;
+      if (!isReplyToList) return;
+
+      const index = parseInt(text.trim()) - 1;
+      if (isNaN(index) || index < 0 || index >= search.videos.length) return reply("❌ Invalid number, please select a valid result.");
+
+      await react(msg.key, '✅');
+      const chosen = search.videos[index];
+
+      const askType = await conn.sendMessage(from, {
+        image: { url: chosen.thumbnail },
+        caption:
+          `🎶 *YouTube Video Info*\n\n` +
+          `📌 *Title:* ${chosen.title}\n` +
+          `👤 *Channel:* ${chosen.author.name}\n` +
+          `👁️ *Views:* ${chosen.views}\n` +
+          `🕒 *Duration:* ${chosen.timestamp}\n` +
+          `📅 *Uploaded:* ${chosen.ago}\n\n` +
+          `🔢 *Reply below number:*\n\n` +
+          `1 | | 🎧 Download MP3\n` +
+          `2 | | 🎥 Download MP4\n\n${ws_footer}`
+      }, { quoted: msg });
+
+      const typeMsgId = askType.key.id;
+
+      conn.ev.on("messages.upsert", async (tUpdate) => {
+        const tMsg = tUpdate?.messages?.[0];
+        if (!tMsg?.message) return;
+
+        const tText = tMsg.message?.conversation || tMsg.message?.extendedTextMessage?.text;
+        const isReplyToType = tMsg?.message?.extendedTextMessage?.contextInfo?.stanzaId === typeMsgId;
+        if (!isReplyToType) return;
+
+        await react(tMsg.key, tText.trim() === "1" ? '🎧' : tText.trim() === "2" ? '🎥' : '❓');
+
+        if (tText.trim() === "1") {
+          await conn.sendMessage(from, {
+            audio: { url: `https://api.agatz.xyz/api/ytmp3?url=${chosen.url}` },
+            mimetype: 'audio/mpeg',
+            fileName: `${chosen.title}.mp3`,
+            caption: `🎧 *${chosen.title}*\n> ${ws_footer}`
+          }, { quoted: tMsg });
+        } else if (tText.trim() === "2") {
+          await conn.sendMessage(from, {
+            video: { url: `https://api.agatz.xyz/api/ytmp4?url=${chosen.url}` },
+            caption: `🎥 *${chosen.title}*\n> ${ws_footer}`
+          }, { quoted: tMsg });
+        } else {
+          await conn.sendMessage(from, { text: "❌ Invalid input. Type 1 for MP3 or 2 for MP4." }, { quoted: tMsg });
+        }
+      });
+    });
+
+  } catch (e) {
+    console.error(e);
+    await reply(`❌ Error: ${e.message}`);
   }
 });
