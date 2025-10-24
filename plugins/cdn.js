@@ -5,76 +5,67 @@
   ✦ Type: ESM Compatible Plugin
 **/
 
-const { cmd } = require('../command')
-const yts = require('yt-search')
+const { cmd } = require('../command');
+const yts = require('yt-search');
 
-let searchResults = {}
+let searchCache = {};
 
 cmd({
   pattern: 'yts2',
-  alias: ['ytsearch2', 'songsearch'],
-  desc: 'Search YouTube videos and reply with number to get details',
+  alias: ['ytsearch2'],
+  desc: 'Search YouTube and get details by replying with number',
   category: 'download',
   react: '🎬'
 }, async (conn, mek, m, { text, from }) => {
   try {
-    if (!text) return await conn.sendMessage(from, { text: '🔎 Please enter a search term.\n\nExample: *.yts2 lelena*' })
+    if (!text) return await conn.sendMessage(from, { text: '🔍 *Please enter a song name.*\nExample: .yts2 lelena' });
 
-    const { videos } = await yts(text)
-    if (!videos || videos.length === 0) return await conn.sendMessage(from, { text: '⚠️ No results found.' })
+    const { videos } = await yts(text);
+    if (!videos || videos.length === 0) return await conn.sendMessage(from, { text: '⚠️ No results found.' });
 
-    let message = `🔍 *Search Results for:* ${text}\n\n`
-    let count = 1
+    let msg = `🎬 *Search Results for:* ${text}\n\n`;
+    searchCache[from] = videos.slice(0, 8);
+    let i = 1;
 
-    searchResults[from] = videos.slice(0, 10).map(v => ({
-      title: v.title,
-      url: v.url,
-      views: v.views,
-      timestamp: v.timestamp,
-      ago: v.ago,
-      author: v.author.name,
-      thumb: v.thumbnail
-    }))
-
-    for (let v of searchResults[from]) {
-      message += `*${count++}.* ${v.title}\n`
+    for (const v of searchCache[from]) {
+      msg += `*${i++}.* ${v.title}\n`;
     }
 
-    message += `\n🪄 *Reply with the number (1-${searchResults[from].length}) to get details.*`
-    await conn.sendMessage(from, { text: message }, { quoted: mek })
+    msg += `\n🪄 *Reply with number (1-${searchCache[from].length}) to get video details.*`;
 
-  } catch (e) {
-    console.error(e)
-    await conn.sendMessage(from, { text: '⚠️ Error fetching results.' })
+    await conn.sendMessage(from, { text: msg }, { quoted: mek });
+
+  } catch (err) {
+    console.log(err);
+    await conn.sendMessage(from, { text: '⚠️ Error fetching results.' });
   }
-})
+});
 
-// reply handler
+// detect reply (works in all chats)
 cmd({
-  on: 'message'
-}, async (conn, mek, m, { from, body }) => {
+  on: 'chat-update'
+}, async (conn, mek) => {
   try {
-    if (!searchResults[from]) return
-    if (!/^\d+$/.test(body.trim())) return
+    if (!mek.message) return;
+    const from = mek.key.remoteJid;
+    const msg = mek.message.conversation || mek.message.extendedTextMessage?.text;
+    if (!msg || !/^\d+$/.test(msg.trim())) return;
+    if (!searchCache[from]) return;
 
-    const index = parseInt(body.trim()) - 1
-    const video = searchResults[from][index]
-    if (!video) return
+    const index = parseInt(msg.trim()) - 1;
+    const video = searchCache[from][index];
+    if (!video) return;
 
-    let detailMsg = `🎬 *${video.title}*\n`
-    detailMsg += `👤 Channel: ${video.author}\n`
-    detailMsg += `👁️ Views: ${video.views}\n`
-    detailMsg += `⏱️ Duration: ${video.timestamp}\n`
-    detailMsg += `📅 Uploaded: ${video.ago}\n\n`
-    detailMsg += `🔗 ${video.url}`
+    const caption = `🎶 *${video.title}*\n👤 Channel: ${video.author.name}\n👁️ Views: ${video.views}\n🕒 Duration: ${video.timestamp}\n📅 Uploaded: ${video.ago}\n\n🔗 ${video.url}`;
 
     await conn.sendMessage(from, {
-      image: { url: video.thumb },
-      caption: detailMsg
-    }, { quoted: mek })
+      image: { url: video.thumbnail },
+      caption
+    }, { quoted: mek });
 
-    delete searchResults[from]
-  } catch (e) {
-    console.error(e)
+    delete searchCache[from];
+
+  } catch (err) {
+    console.log(err);
   }
-})
+});
