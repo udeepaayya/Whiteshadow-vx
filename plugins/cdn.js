@@ -5,59 +5,76 @@
   ✦ Type: ESM Compatible Plugin
 **/
 
-const { cmd } = require('../command');
-const axios = require('axios');
+const { cmd } = require('../command')
+const yts = require('yt-search')
+
+let searchResults = {}
 
 cmd({
-  pattern: "yts2",
-  alias: ["ytsearch2", "yt2"],
-  react: "🔎",
-  desc: "Search YouTube videos (WhiteShadow API)",
-  category: "download",
-  use: ".yts2 <song name>",
-  filename: __filename
-}, async (conn, mek, m, { text, reply }) => {
-  if (!text) return reply("🧠 Use: *.yts2 Lelena*");
-
+  pattern: 'yts2',
+  alias: ['ytsearch2', 'songsearch'],
+  desc: 'Search YouTube videos and reply with number to get details',
+  category: 'download',
+  react: '🎬'
+}, async (conn, mek, m, { text, from }) => {
   try {
-    const { data } = await axios.get(`https://whiteshadow-yts.vercel.app/?q=${encodeURIComponent(text)}`);
-    if (!data || !data.videos || data.videos.length === 0)
-      return reply("❌ No results found!");
+    if (!text) return await conn.sendMessage(from, { text: '🔎 Please enter a search term.\n\nExample: *.yts2 lelena*' })
 
-    let list = `🔎 *Search Results for:* ${text}\n\n`;
-    let vidList = [];
-    let count = 1;
+    const { videos } = await yts(text)
+    if (!videos || videos.length === 0) return await conn.sendMessage(from, { text: '⚠️ No results found.' })
 
-    for (const v of data.videos.filter(v => v.type === "video")) {
-      list += `${count}. ${v.name}\n`;
-      vidList.push(v);
-      count++;
+    let message = `🔍 *Search Results for:* ${text}\n\n`
+    let count = 1
+
+    searchResults[from] = videos.slice(0, 10).map(v => ({
+      title: v.title,
+      url: v.url,
+      views: v.views,
+      timestamp: v.timestamp,
+      ago: v.ago,
+      author: v.author.name,
+      thumb: v.thumbnail
+    }))
+
+    for (let v of searchResults[from]) {
+      message += `*${count++}.* ${v.title}\n`
     }
 
-    list += `\n💬 Reply with the number (1-${vidList.length}) to get video details.`;
-    const sentMsg = await conn.sendMessage(m.chat, { text: list }, { quoted: mek });
+    message += `\n🪄 *Reply with the number (1-${searchResults[from].length}) to get details.*`
+    await conn.sendMessage(from, { text: message }, { quoted: mek })
 
-    conn.ev.once('messages.upsert', async (msgEvent) => {
-      try {
-        const msg = msgEvent.messages[0];
-        if (!msg.message || msg.key.remoteJid !== m.chat) return;
-        const num = parseInt(msg.message.conversation?.trim() || msg.message.extendedTextMessage?.text?.trim());
-        if (!num || num < 1 || num > vidList.length) return;
-
-        const vid = vidList[num - 1];
-        const details = `🎵 *${vid.name}*\n📺 *Channel:* ${vid.author}\n👁️ *Views:* ${vid.views}\n⏱️ *Duration:* ${vid.duration}\n📅 *Published:* ${vid.published}\n\n🔗 ${vid.url}`;
-
-        await conn.sendMessage(m.chat, {
-          image: { url: vid.thumbnail },
-          caption: details
-        }, { quoted: mek });
-      } catch (err) {
-        console.log("Reply handler error:", err);
-      }
-    });
-
-  } catch (err) {
-    console.error(err);
-    reply("⚠️ Error fetching results.");
+  } catch (e) {
+    console.error(e)
+    await conn.sendMessage(from, { text: '⚠️ Error fetching results.' })
   }
-});
+})
+
+// reply handler
+cmd({
+  on: 'message'
+}, async (conn, mek, m, { from, body }) => {
+  try {
+    if (!searchResults[from]) return
+    if (!/^\d+$/.test(body.trim())) return
+
+    const index = parseInt(body.trim()) - 1
+    const video = searchResults[from][index]
+    if (!video) return
+
+    let detailMsg = `🎬 *${video.title}*\n`
+    detailMsg += `👤 Channel: ${video.author}\n`
+    detailMsg += `👁️ Views: ${video.views}\n`
+    detailMsg += `⏱️ Duration: ${video.timestamp}\n`
+    detailMsg += `📅 Uploaded: ${video.ago}\n\n`
+    detailMsg += `🔗 ${video.url}`
+
+    await conn.sendMessage(from, {
+      image: { url: video.thumb },
+      caption: detailMsg
+    }, { quoted: mek })
+
+    delete searchResults[from]
+  } catch (e) {
+    console.error(e)
+  }
+})
