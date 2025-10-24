@@ -10,38 +10,42 @@
  * Author: Chamod Nimsara | Team WhiteShadow
  */
 
-import axios from 'axios';
-import { cmd } from '../command.js';
-
-// ⚠️ ඔබේ ImgBB API key එක මෙතන දාන්න
-const API_KEY = 'eb6ec8d812ae32e7a1a765740fd1b497';
+const { cmd } = require('../command');
+const axios = require('axios');
+const FormData = require('form-data');
+const fs = require('fs');
 
 cmd({
-  pattern: 'upimg',
-  alias: ['imgupload', 'ibb'],
-  desc: 'Upload image to ImgBB (ibb.co)',
-  react: '🖼️',
-  category: 'tools',
-}, async (conn, m) => {
-  const q = m.quoted ? m.quoted : m;
-  const mime = (q.msg || q).mimetype || '';
-  if (!mime.startsWith('image/')) return m.reply('⚠️ Please reply to a *photo/image* to upload.');
-
-  const buffer = await q.download();
-  if (!buffer) return m.reply('❌ Failed to download image.');
-
+  pattern: "ibb",
+  desc: "Upload image to imgbb.com",
+  category: "tools",
+  react: "🖼️",
+  use: ".ibb <reply image>",
+  filename: __filename
+}, async (conn, mek, m, { reply, mime }) => {
   try {
-    const base64 = buffer.toString('base64');
-    const res = await axios.post(`https://api.imgbb.com/1/upload?key=${API_KEY}`, {
-      image: base64,
+    if (!mime || !mime.startsWith('image')) return reply('⚠️ Reply to an image!');
+    
+    const buffer = await m.download(); // get replied image as buffer
+    const form = new FormData();
+    form.append('image', buffer.toString('base64')); // imgbb accepts base64
+    
+    // 🧩 Replace with your own API key (Get free at https://api.imgbb.com)
+    const API_KEY = 'eb6ec8d812ae32e7a1a765740fd1b497';
+    const url = `https://api.imgbb.com/1/upload?key=${API_KEY}`;
+    
+    const res = await axios.post(url, form, {
+      headers: form.getHeaders()
     });
 
-    const data = res.data.data;
-    const link = data.url;
+    if (res.data && res.data.data && res.data.data.url) {
+      reply(`✅ Upload Successful!\n\n🔗 ${res.data.data.url}`);
+    } else {
+      reply('❌ Upload failed: Unexpected response.');
+    }
 
-    await m.reply(`✅ *Upload Successful!*\n\n🖼️ *Image Link:* ${link}\n📸 *Delete URL:* ${data.delete_url}\n\n_© WHITESHADOW-MD_`);
-  } catch (err) {
-    console.error('ImgBB error:', err.response?.data || err);
-    await m.reply(`❌ Upload failed: ${err.message}`);
+  } catch (e) {
+    console.log(e);
+    reply(`❌ Upload failed: ${e.message}`);
   }
 });
