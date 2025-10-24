@@ -43,7 +43,7 @@ OWNER_NAME: process.env.OWNER_NAME || "Chamod Nimsara",
 // add bot owner name
 DESCRIPTION: process.env.DESCRIPTION || "*© ᴘᴏᴡᴇʀᴇᴅ ʙʏ WHITESHADOW-MD*",
 // add bot owner name    
-ALIVE_IMG: process.env.ALIVE_IMG || "https://files.catbox.moe/fyr37r.jpg",
+ALIVE_IMG: process.env.ALIVE_IMG || "https://i.ibb.co/MyLVLd1H/b7e11b4c6e14.jpg",
 // add img for alive msg
 LIVE_MSG: process.env.LIVE_MSG || "> hi! dear I am alive now*⚡",
 // add alive msg here 
