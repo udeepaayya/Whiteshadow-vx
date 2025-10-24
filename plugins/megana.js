@@ -4,50 +4,44 @@
  * Description: Upload any file (photo, video, doc, zip) to transfer.sh anonymously
  */
 
-const { cmd } = require('../command');
-const axios = require('axios');
-const FormData = require('form-data');
-const fs = require('fs');
-const path = require('path');
+/**
+ * 🖼️ WHITESHADOW-MD | ImgBB Uploader
+ * Upload photos to ibb.co (ImgBB)
+ * Author: Chamod Nimsara | Team WhiteShadow
+ */
+
+import axios from 'axios';
+import { cmd } from '../command.js';
+
+// ⚠️ ඔබේ ImgBB API key එක මෙතන දාන්න
+const API_KEY = 'eb6ec8d812ae32e7a1a765740fd1b497';
 
 cmd({
-    pattern: "cdn",
-    alias: ["upload", "store"],
-    desc: "Upload replied file to Bandaheali CDN",
-    category: "tools",
-    react: "☁️",
-    filename: __filename
-}, async (conn, mek, m, { from }) => {
-    try {
-        const quoted = mek.quoted || m.quoted;
-        if (!quoted) return mek.reply("❌ *Reply* to any image/video/document to upload it to CDN.");
+  pattern: 'upimg',
+  alias: ['imgupload', 'ibb'],
+  desc: 'Upload image to ImgBB (ibb.co)',
+  react: '🖼️',
+  category: 'tools',
+}, async (conn, m) => {
+  const q = m.quoted ? m.quoted : m;
+  const mime = (q.msg || q).mimetype || '';
+  if (!mime.startsWith('image/')) return m.reply('⚠️ Please reply to a *photo/image* to upload.');
 
-        const qmsg = quoted.msg || quoted;
-        const mediaPath = await conn.downloadAndSaveMediaMessage(qmsg);
-        if (!mediaPath) return mek.reply("❌ Could not download the file. Try again!");
+  const buffer = await q.download();
+  if (!buffer) return m.reply('❌ Failed to download image.');
 
-        const ext = path.extname(mediaPath) || ".bin";
-        const filename = "WHITESHADOW~" + Math.floor(Math.random() * 100000) + ext;
+  try {
+    const base64 = buffer.toString('base64');
+    const res = await axios.post(`https://api.imgbb.com/1/upload?key=${API_KEY}`, {
+      image: base64,
+    });
 
-        let form = new FormData();
-        form.append("file", fs.createReadStream(mediaPath), { filename });
+    const data = res.data.data;
+    const link = data.url;
 
-        let uploadMsg = await mek.reply("☁️ Uploading file to *Bandaheali CDN*...");
-
-        const { data } = await axios.post("https://cdn-bandaheali.vercel.app/api/upload", form, {
-            headers: form.getHeaders()
-        });
-
-        fs.unlinkSync(mediaPath);
-
-        if (data?.file?.url) {
-            await uploadMsg.edit(`✅ *File uploaded successfully!*\n\n🌐 *CDN URL:*\n${data.file.url}`);
-        } else {
-            await uploadMsg.edit("❌ Upload failed.\n```" + JSON.stringify(data, null, 2) + "```");
-        }
-
-    } catch (error) {
-        console.error("CDN Upload Error:", error);
-        await mek.reply("❌ *Failed to upload file.*\nError: " + error.message);
-    }
+    await m.reply(`✅ *Upload Successful!*\n\n🖼️ *Image Link:* ${link}\n📸 *Delete URL:* ${data.delete_url}\n\n_© WHITESHADOW-MD_`);
+  } catch (err) {
+    console.error('ImgBB error:', err.response?.data || err);
+    await m.reply(`❌ Upload failed: ${err.message}`);
+  }
 });
