@@ -4,114 +4,112 @@
   ✦ API: https://whiteshadow-yts.vercel.app/?q=
   ✦ Type: ESM Compatible Plugin
 **/
+const { cmd } = require('../command');
+const config = require('../config');
+const fetch = require('node-fetch');
+const https = require('https');
 
-
-    const { cmd } = require('../command');
-const { fetchJson } = require('../lib/functions');
-const yts = require('yt-search');
-
-const ws_footer = "> © Powered by WhiteShadow-MD";
+const ws_footer = config.FOOTER || "© WhiteShadow-MD ❤️";
 
 cmd({
   pattern: "yts2",
   alias: ["ytsearch2"],
-  use: ".yts2 <song name>",
   react: "🎬",
-  desc: "Search YouTube videos and download by replying.",
+  desc: "Search YouTube (API) & download audio",
   category: "download",
+  use: ".yts2 <song name>",
   filename: __filename
-}, async (conn, mek, m, { q, from, reply }) => {
-
-  const react = async (msgKey, emoji) => {
-    try {
-      await conn.sendMessage(from, {
-        react: {
-          text: emoji,
-          key: msgKey
-        }
-      });
-    } catch (e) {
-      console.error("Reaction error:", e.message);
-    }
-  };
-
+}, async (conn, mek, m, { from, q, reply }) => {
   try {
-    if (!q) return await reply("🔍 Please enter a YouTube search term!\nExample: *.yts2 lelena*");
+    if (!q) return await reply("❌ Please enter a song name!");
 
-    const search = await yts(q);
-    if (!search.videos || search.videos.length === 0) return await reply("⚠️ No results found for your query.");
+    // API call to your YTS API
+    const apiUrl = `https://whiteshadow-yts.vercel.app/?q=${encodeURIComponent(q)}`;
+    const agent = new https.Agent({ rejectUnauthorized: false });
+    const res = await fetch(apiUrl, { agent });
+    const data = await res.json();
 
-    let list = "🎬 *WHITE SHADOW YouTube Search Result*\n\n";
-    search.videos.slice(0, 8).forEach((v, i) => {
-      list += `*${i + 1} | | ${v.title}*\n`;
+    if (!data.success || !data.videos || data.videos.length === 0)
+      return await reply("⚠️ No results found!");
+
+    // Filter only video type
+    const videos = data.videos.filter(v => v.type === "video").slice(0, 8);
+
+    let msg = `🎬 *Search Results for:* ${q}\n\n`;
+    videos.forEach((v, i) => {
+      msg += `*${i+1} |* ${v.name}\n`;
     });
+    msg += `\n🪄 Reply with number (1-${videos.length}) to get details & download.\n\n${ws_footer}`;
 
-    const listMsg = await conn.sendMessage(from, {
-      text: list + `\n🔢 *Reply below number to select a video.*\n\n${ws_footer}`
-    }, { quoted: mek });
+    const sent = await conn.sendMessage(from, { text: msg }, { quoted: mek });
+    const msgId = sent.key.id;
 
-    const listMsgId = listMsg.key.id;
-
+    // Wait for reply to select video
     conn.ev.on("messages.upsert", async (update) => {
-      const msg = update?.messages?.[0];
-      if (!msg?.message) return;
+      const msgObj = update.messages?.[0];
+      if (!msgObj?.message) return;
 
-      const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
-      const isReplyToList = msg?.message?.extendedTextMessage?.contextInfo?.stanzaId === listMsgId;
-      if (!isReplyToList) return;
+      const text = msgObj.message.conversation || msgObj.message?.extendedTextMessage?.text;
+      const isReply = msgObj.message?.extendedTextMessage?.contextInfo?.stanzaId === msgId;
+      if (!isReply) return;
 
       const index = parseInt(text.trim()) - 1;
-      if (isNaN(index) || index < 0 || index >= search.videos.length) return reply("❌ Invalid number, please select a valid result.");
+      if (isNaN(index) || index < 0 || index >= videos.length)
+        return await reply("❌ Invalid number!", msgObj);
 
-      await react(msg.key, '✅');
-      const chosen = search.videos[index];
+      const chosen = videos[index];
+      const thumbnail = chosen.thumbnail.replace(/\[|\]/g, "");
+      const caption =
+`🎵 *${chosen.name}*
+👤 Channel: ${chosen.author}
+👁️ Views: ${chosen.views}
+🕒 Duration: ${chosen.duration}
+📅 Published: ${chosen.published}
 
-      const askType = await conn.sendMessage(from, {
-        image: { url: chosen.thumbnail },
-        caption:
-          `🎶 *YouTube Video Info*\n\n` +
-          `📌 *Title:* ${chosen.title}\n` +
-          `👤 *Channel:* ${chosen.author.name}\n` +
-          `👁️ *Views:* ${chosen.views}\n` +
-          `🕒 *Duration:* ${chosen.timestamp}\n` +
-          `📅 *Uploaded:* ${chosen.ago}\n\n` +
-          `🔢 *Reply below number:*\n\n` +
-          `1 | | 🎧 Download MP3\n` +
-          `2 | | 🎥 Download MP4\n\n${ws_footer}`
-      }, { quoted: msg });
+🔗 ${chosen.url}
 
-      const typeMsgId = askType.key.id;
+⏬ Reply 1 to download audio MP3
 
-      conn.ev.on("messages.upsert", async (tUpdate) => {
-        const tMsg = tUpdate?.messages?.[0];
-        if (!tMsg?.message) return;
+${ws_footer}`;
 
-        const tText = tMsg.message?.conversation || tMsg.message?.extendedTextMessage?.text;
-        const isReplyToType = tMsg?.message?.extendedTextMessage?.contextInfo?.stanzaId === typeMsgId;
-        if (!isReplyToType) return;
+      const infoMsg = await conn.sendMessage(from, { image: { url: thumbnail }, caption }, { quoted: msgObj });
+      const infoMsgId = infoMsg.key.id;
 
-        await react(tMsg.key, tText.trim() === "1" ? '🎧' : tText.trim() === "2" ? '🎥' : '❓');
+      conn.ev.on("messages.upsert", async (replyUpdate) => {
+        const rMsg = replyUpdate.messages?.[0];
+        if (!rMsg?.message) return;
 
-        if (tText.trim() === "1") {
-          await conn.sendMessage(from, {
-            audio: { url: `https://api.agatz.xyz/api/ytmp3?url=${chosen.url}` },
-            mimetype: 'audio/mpeg',
-            fileName: `${chosen.title}.mp3`,
-            caption: `🎧 *${chosen.title}*\n> ${ws_footer}`
-          }, { quoted: tMsg });
-        } else if (tText.trim() === "2") {
-          await conn.sendMessage(from, {
-            video: { url: `https://api.agatz.xyz/api/ytmp4?url=${chosen.url}` },
-            caption: `🎥 *${chosen.title}*\n> ${ws_footer}`
-          }, { quoted: tMsg });
-        } else {
-          await conn.sendMessage(from, { text: "❌ Invalid input. Type 1 for MP3 or 2 for MP4." }, { quoted: tMsg });
-        }
+        const replyTxt = rMsg.message.conversation || rMsg.message?.extendedTextMessage?.text;
+        const isReplyToInfo = rMsg.message?.extendedTextMessage?.contextInfo?.stanzaId === infoMsgId;
+        if (!isReplyToInfo) return;
+
+        if (replyTxt.trim() !== "1") return await conn.sendMessage(from, { text: "❌ Reply 1 to download audio." }, { quoted: rMsg });
+
+        await conn.sendMessage(from, { text: "⏳ Fetching audio link..." }, { quoted: rMsg });
+
+        // Use your Koyeb API for audio
+        const audioApi = `https://foreign-marna-sithaunarathnapromax-9a005c2e.koyeb.app/api/ytapi?url=${encodeURIComponent(chosen.url)}&fo=2&qu=144&apiKey=d3d7e61cc85c2d70974972ff6d56edfac42932d394f7551207d2f6ca707eda56`;
+        const res2 = await fetch(audioApi, { agent });
+        const audioData = await res2.json();
+
+        if (!audioData.downloadData || !audioData.downloadData.url)
+          return await reply("⚠️ Audio download link not found!", rMsg);
+
+        const downloadUrl = audioData.downloadData.url;
+        const title = chosen.name.length > 40 ? chosen.name.slice(0, 40) + "..." : chosen.name;
+
+        await conn.sendMessage(from, {
+          audio: { url: downloadUrl },
+          mimetype: "audio/mpeg",
+          fileName: `${title}.mp3`,
+          ptt: false,
+          caption: `🎧 *${chosen.name}*\n> ${ws_footer}`
+        }, { quoted: rMsg });
       });
     });
 
-  } catch (e) {
-    console.error(e);
-    await reply(`❌ Error: ${e.message}`);
+  } catch (err) {
+    console.error(err);
+    await reply(`❌ Error: ${err.message}`);
   }
 });
