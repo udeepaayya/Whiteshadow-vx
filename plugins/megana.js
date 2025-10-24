@@ -1,11 +1,6 @@
-/**
- * 🖼️ WHITESHADOW-MD | ImgBB Upload
- * Upload image to ImgBB (ibb.co)
- * Author: Chamod Nimsara | Team WhiteShadow
- */
-
 import { cmd } from '../command.js';
 import axios from 'axios';
+import qs from 'querystring';
 
 const API_KEY = 'eb6ec8d812ae32e7a1a765740fd1b497';
 
@@ -25,15 +20,24 @@ cmd({
     if (!buffer) return m.reply('❌ Failed to download image.');
 
     const base64 = buffer.toString('base64');
+
+    // ⚡ Form-urlencoded body
+    const formData = qs.stringify({
+      key: API_KEY,
+      image: base64,
+      expiration: 600 // optional, 10 min expiry
+    });
+
     const res = await axios.post(
-      `https://api.imgbb.com/1/upload?key=${API_KEY}`,
-      { image: base64 }
+      'https://api.imgbb.com/1/upload',
+      formData,
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
     );
 
     if (res.data && res.data.data && res.data.data.url) {
       const data = res.data.data;
       await m.reply(
-        `✅ *Upload Successful!*\n\n🖼️ *Image Link:* ${data.url}\n📸 *Delete URL:* ${data.delete_url}\n\n_© WHITESHADOW-MD_`
+        `✅ Upload Successful!\n\n🖼️ Image Link: ${data.url}\n📸 Delete URL: ${data.delete_url}\n\n© WHITESHADOW-MD`
       );
     } else {
       m.reply('❌ Upload failed: Unexpected response.');
