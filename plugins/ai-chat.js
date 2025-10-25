@@ -14,7 +14,7 @@ const fetch = require('node-fetch');
 // AI 1 - Zenzxz API
 //═══════════════════════════════════════════════//
 cmd({
-  pattern: "ai",
+  pattern: "ai2",
   alias: ["ask"],
   desc: "Ask questions to the AI using Zenzxz API (English)",
   category: "ai",
@@ -47,7 +47,7 @@ async (conn, mek, m, { from, reply, text, command, prefix }) => {
 // AI 2 - Lance-Frank (GPT)
 //═══════════════════════════════════════════════//
 cmd({
-  pattern: "ai2",
+  pattern: "ai",
   alias: ["bot", "shadow", "gpt", "gpt4", "bing"],
   desc: "Chat with an AI model",
   category: "ai",
@@ -248,7 +248,7 @@ cmd({
       return reply("❌ Failed to generate lyrics. Please try again later.");
     }
 
-    const result = `🎤 *AI Lyrics Generator*\n\n🪄 *Prompt:* ${q}\n👑 *Creator:* ${data.creator}\n\n${data.data.lyrics}\n\n> © WHITESHADOW-MD`;
+    const result = `🎤 *AI Lyrics Generator*\n\n🪄 *Prompt:* ${q}\n👑 *Creator:* WHITESHADOW\n\n${data.data.lyrics}\n\n> © WHITESHADOW-MD`;
 
     await conn.sendMessage(from, { text: result }, { quoted: mek });
 
