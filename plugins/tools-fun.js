@@ -166,7 +166,7 @@ cmd({
       return reply("❌ Failed to fetch a fun fact. Please try again.");
     }
 
-    const factMessage = `🧠 *Random Fun Fact* 🧠\n\n${fact}\n\nIsn't that interesting? 😄\n\n> *© Powered by JawadTechX*`;
+    const factMessage = `🧠 *Random Fun Fact* 🧠\n\n${fact}\n\nIsn't that interesting? 😄\n\n> *© Powered by Whiteshadow*`;
 
     return reply(factMessage);
   } catch (error) {
@@ -348,23 +348,4 @@ cmd({
   }
 });
 
-cmd({
-  pattern: "readmore",
-  alias: ["rm", "rmore", "readm"],
-  desc: "Generate a Read More message.",
-  category: "convert",
-  use: ".readmore <text>",
-  react: "📝",
-  filename: __filename
-}, async (conn, m, store, { args, reply }) => {
-  try {
-    const inputText = args.join(" ") || "No text provided.";
-    const readMore = String.fromCharCode(8206).repeat(4000); // Creates a large hidden gap
-    const message = `${inputText} ${readMore} Continue Reading...`;
 
-    await conn.sendMessage(m.from, { text: message }, { quoted: m });
-  } catch (error) {
-    console.error("❌ Error in readmore command:", error);
-    reply("❌ An error occurred: " + error.message);
-  }
-});
