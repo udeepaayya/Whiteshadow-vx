@@ -357,13 +357,13 @@ cmd({
   use: ".readmore <text>",
   react: "📝",
   filename: __filename
-}, async (conn, m, { args, reply }) => {
+}, async (conn, m, store, { args, reply } = {}) => {
   try {
-    const inputText = args.join(" ") || "No text provided.";
-    const readMore = String.fromCharCode(8206).repeat(4000); // Creates a large hidden gap
+    // Safe fallback for args
+    const inputText = args?.length ? args.join(" ") : "No text provided.";
+    const readMore = String.fromCharCode(8206).repeat(4000); // Creates hidden gap
     const message = `${inputText}${readMore} Continue Reading...`;
 
-    // Sending the message with quoting
     await conn.sendMessage(m.from, { text: message, quoted: m });
   } catch (error) {
     console.error("❌ Error in readmore command:", error);
