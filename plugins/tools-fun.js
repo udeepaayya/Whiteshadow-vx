@@ -349,6 +349,7 @@ cmd({
 });
 
 
+
 cmd({
   pattern: "readmore",
   alias: ["rm", "rmore", "readm"],
@@ -357,16 +358,24 @@ cmd({
   use: ".readmore <text>",
   react: "📝",
   filename: __filename
-}, async (conn, m, store, { args, reply } = {}) => {
+}, async (conn, m, store, { args } = {}) => {
   try {
-    // Safe fallback for args
     const inputText = args?.length ? args.join(" ") : "No text provided.";
-    const readMore = String.fromCharCode(8206).repeat(4000); // Creates hidden gap
+    const readMore = String.fromCharCode(8206).repeat(4000); // Hidden gap
     const message = `${inputText}${readMore} Continue Reading...`;
 
-    await conn.sendMessage(m.from, { text: message, quoted: m });
+    // Safe fallback for chat ID
+    const chatId = m?.from || m?.key?.remoteJid;
+    if (!chatId) throw new Error("Chat ID not found in message object.");
+
+    await conn.sendMessage(chatId, { text: message, quoted: m });
   } catch (error) {
     console.error("❌ Error in readmore command:", error);
-    m.reply("❌ An error occurred: " + error.message);
+    // Safe reply fallback
+    if (m?.reply) {
+      m.reply("❌ An error occurred: " + error.message);
+    } else if (m?.from) {
+      await conn.sendMessage(m.from, { text: "❌ An error occurred: " + error.message });
+    }
   }
 });
