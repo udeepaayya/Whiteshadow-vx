@@ -228,3 +228,32 @@ END:VCARD`,
     reply("❌ An error occurred while communicating with DeepSeek AI.");
   }
 });
+
+cmd({
+  pattern: "ailyrics",
+  alias: ["ailyric", "aisong", "aily"],
+  desc: "Generate creative song lyrics using Zenzxz AI Lyrics Generator",
+  category: "ai",
+  use: ".lyrics <prompt>",
+  react: "🎶",
+  filename: __filename
+}, async (conn, mek, m, { from, q, reply }) => {
+  try {
+    if (!q) return reply("🎵 *Please provide a topic to generate lyrics!*\n\n_Example:_ .lyrics Rain");
+
+    const apiUrl = `https://api.zenzxz.my.id/api/ai/lyricsgenerator?prompt=${encodeURIComponent(q)}`;
+    const { data } = await axios.get(apiUrl);
+
+    if (!data.success || !data.data || !data.data.lyrics) {
+      return reply("❌ Failed to generate lyrics. Please try again later.");
+    }
+
+    const result = `🎤 *AI Lyrics Generator*\n\n🪄 *Prompt:* ${q}\n👑 *Creator:* ${data.creator}\n\n${data.data.lyrics}\n\n> © WHITESHADOW-MD`;
+
+    await conn.sendMessage(from, { text: result }, { quoted: mek });
+
+  } catch (e) {
+    console.error(e);
+    reply("⚠️ An error occurred while generating lyrics.");
+  }
+});
