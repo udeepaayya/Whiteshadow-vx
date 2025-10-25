@@ -6,7 +6,7 @@ const axios = require('axios');
 cmd({
   pattern: "quax",
   alias: ["upload2", "imgup", "qstore"],
-  desc: "Upload any file to Qu.ax server with QR code",
+  desc: "Upload any file to Qu.ax server",
   category: "tools",
   use: ".quax (reply to a file)",
   react: "☁️",
@@ -24,7 +24,7 @@ cmd({
     form.append("file", fs.createReadStream(filePath));
     form.append("apikey", "freeApikey");
 
-    // Send to API
+    // Upload to API
     const res = await axios.post("https://anabot.my.id/api/tools/quAx", form, {
       headers: {
         ...form.getHeaders(),
@@ -32,13 +32,16 @@ cmd({
       }
     });
 
-    // Delete local temp file
+    // Delete temp file
     fs.unlinkSync(filePath);
 
-    if (!res.data.success) return reply("❌ Upload failed!");
+    // Check response
+    if (!res.data.success) {
+      console.log("API Error:", res.data);
+      return reply("❌ Upload failed (API returned error).");
+    }
 
     const info = res.data.data.result;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(info.url)}`;
 
     const caption = `
 ╭━━━〔 *QU.AX UPLOAD SUCCESS* 〕━━━╮
@@ -49,14 +52,13 @@ cmd({
 ┃ 🔗 *Direct Link:* ${info.url}
 ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
 > © WhiteShadow-MD
-    `;
+`;
 
-    // Send QR + caption
-    await conn.sendMessage(from, { image: { url: qrUrl }, caption }, { quoted: mek });
+    await conn.sendMessage(from, { text: caption }, { quoted: mek });
 
   } catch (e) {
-    console.error(e.response ? e.response.data : e);
-    reply("❌ Upload failed, check console for details.");
+    console.error("Upload Error:", e.response ? e.response.data : e);
+    reply("❌ Upload failed. Check console for details.");
   }
 
 });
