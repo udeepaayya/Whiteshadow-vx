@@ -2,43 +2,38 @@ const { cmd } = require('../command');
 const axios = require('axios');
 const fs = require('fs');
 const FormData = require('form-data');
+const path = require('path');
 
 cmd({
   pattern: "gofile",
-  alias: ["uploadg", "goup", "store"],
-  desc: "Upload any media file (image/video/document) to GoFile server with QR",
+  alias: ["upload", "goup", "store"],
+  desc: "Upload any media file (image/video/document) to GoFile server",
   category: "tools",
   use: ".gofile (reply to a file)",
   react: "☁️",
   filename: __filename
-}, async (conn, mek, m, { from, reply, quoted }) => {
+}, async (conn, mek, m, { from, reply, mime, quoted, isMedia }) => {
 
   try {
-    if (!quoted) return reply("⚠️ Reply to an image, video, or document you want to upload!");
-
-    // Download replied file
+    if (!quoted) return reply("⚠️ Reply to a file, image or video you want to upload!");
     const filePath = await conn.downloadAndSaveMediaMessage(quoted);
 
-    // Prepare FormData
     const form = new FormData();
     form.append("file", fs.createReadStream(filePath));
-    form.append("apikey", "freeApikey");
+    form.append("apikey", "freeApikey"); // use your key if you have one
 
-    // Upload to API
     const res = await axios.post("https://anabot.my.id/api/tools/goFile", form, {
       headers: form.getHeaders()
     });
 
-    fs.unlinkSync(filePath); // remove temp file
+    fs.unlinkSync(filePath); // delete after upload
 
     if (!res.data.success) return reply("❌ Upload failed!");
 
     const info = res.data.data.result;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(info.downloadPage)}`;
-
     const caption = `
 ╭━━━〔 *GOFILE UPLOAD SUCCESS* 〕━━━╮
-┃ 📁 *File:* ${info.name}
+┃ 📁 *File Name:* ${info.name}
 ┃ 💾 *Size:* ${(info.size / 1024).toFixed(1)} KB
 ┃ 🧩 *Type:* ${info.mimetype}
 ┃ 🔗 *Download Page:* ${info.downloadPage}
@@ -47,14 +42,10 @@ cmd({
 > © WhiteShadow-MD
     `;
 
-    // Send result with QR
-    await conn.sendMessage(from, {
-      image: { url: qrUrl },
-      caption
-    }, { quoted: mek });
+    await conn.sendMessage(from, { image: { url: info.imageUrl || null }, caption }, { quoted: mek });
 
   } catch (e) {
-    console.error(e);
+    console.log(e);
     reply("❌ Upload failed, try again later.");
   }
 
