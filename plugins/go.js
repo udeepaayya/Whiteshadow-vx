@@ -6,7 +6,7 @@ const axios = require('axios');
 cmd({
   pattern: "quax",
   alias: ["upload2", "imgup", "qstore"],
-  desc: "Upload any file to Qu.ax server",
+  desc: "Upload any file to Qu.ax server (Debug mode)",
   category: "tools",
   use: ".quax (reply to a file)",
   react: "☁️",
@@ -14,9 +14,9 @@ cmd({
 }, async (conn, mek, m, { from, reply, quoted }) => {
 
   try {
-    if (!quoted) return reply("⚠️ Reply to an image, video, or document you want to upload!");
+    if (!quoted) return reply("⚠️ Reply to an image, video, or document first!");
 
-    // Download the replied file
+    // Download replied file
     const filePath = await conn.downloadAndSaveMediaMessage(quoted);
 
     // Prepare form data
@@ -24,41 +24,45 @@ cmd({
     form.append("file", fs.createReadStream(filePath));
     form.append("apikey", "freeApikey");
 
-    // Upload to API
+    reply("⏳ Uploading your file to Qu.ax...");
+
+    // Send request
     const res = await axios.post("https://anabot.my.id/api/tools/quAx", form, {
-      headers: {
-        ...form.getHeaders(),
-        Accept: "application/json"
-      }
+      headers: form.getHeaders(),
+      timeout: 30000, // 30s timeout
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity
     });
 
-    // Delete temp file
+    // Remove temp file
     fs.unlinkSync(filePath);
 
-    // Check response
+    // Print full JSON to console for debugging
+    console.log("🔍 Full API Response:", res.data);
+
+    // If API fails
     if (!res.data.success) {
-      console.log("API Error:", res.data);
-      return reply("❌ Upload failed (API returned error).");
+      reply("❌ Upload failed (API error). Check console.");
+      return;
     }
 
     const info = res.data.data.result;
+    const msg = `
+✅ *Upload Successful!*
+📁 *File:* ${info.name}
+💾 *Size:* ${(info.size / 1024).toFixed(1)} KB
+🧩 *Hash:* ${info.hash.substring(0, 16)}...
+⏰ *Expiry:* ${info.expiry}
+🔗 *Direct Link:* ${info.url}
 
-    const caption = `
-╭━━━〔 *QU.AX UPLOAD SUCCESS* 〕━━━╮
-┃ 📁 *File:* ${info.name}
-┃ 💾 *Size:* ${(info.size / 1024).toFixed(1)} KB
-┃ 🧩 *Hash:* ${info.hash.substring(0, 16)}...
-┃ ⏰ *Expiry:* ${info.expiry}
-┃ 🔗 *Direct Link:* ${info.url}
-╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
 > © WhiteShadow-MD
-`;
+    `;
 
-    await conn.sendMessage(from, { text: caption }, { quoted: mek });
+    await conn.sendMessage(from, { text: msg }, { quoted: mek });
 
   } catch (e) {
-    console.error("Upload Error:", e.response ? e.response.data : e);
-    reply("❌ Upload failed. Check console for details.");
+    console.error("🚨 Error Details:", e.response ? e.response.data : e);
+    reply("❌ Upload failed. Error logged to console.");
   }
 
 });
